@@ -141,7 +141,7 @@ function GdReportPage() {
 
   const { data: allRounds = [] } = useQuery({
     queryKey: ["gd-history"],
-    queryFn: gdList,
+    queryFn: () => gdList().then((page) => page.sessions),
     staleTime: 30_000,
   });
 

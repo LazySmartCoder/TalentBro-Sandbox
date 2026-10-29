@@ -21,6 +21,7 @@ import { Route as CommunicationTrainingTipsRouteImport } from './routes/communic
 import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as CopilotRouteImport } from './routes/copilot'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DiscussionForumRouteImport } from './routes/discussion-forum'
 import { Route as DrivesRouteImport } from './routes/drives'
 import { Route as DsaTrainingRouteImport } from './routes/dsa-training'
 import { Route as EnglishTrainingRouteImport } from './routes/english-training'
@@ -33,9 +34,11 @@ import { Route as LdTrainingRouteImport } from './routes/ld-training'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as MockInterviewRouteImport } from './routes/mock-interview'
+import { Route as MockInterviewHistoryRouteImport } from './routes/mock-interview-history'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PlacementCellRouteImport } from './routes/placement-cell'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as RoadmapDrillRouteImport } from './routes/roadmap-drill'
 import { Route as SelfTrainingRouteImport } from './routes/self-training'
 import { Route as SituationalTrainingRouteImport } from './routes/situational-training'
 import { Route as StudentRouteImport } from './routes/student'
@@ -111,6 +114,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiscussionForumRoute = DiscussionForumRouteImport.update({
+  id: '/discussion-forum',
+  path: '/discussion-forum',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DrivesRoute = DrivesRouteImport.update({
   id: '/drives',
   path: '/drives',
@@ -171,6 +179,11 @@ const MockInterviewRoute = MockInterviewRouteImport.update({
   path: '/mock-interview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MockInterviewHistoryRoute = MockInterviewHistoryRouteImport.update({
+  id: '/mock-interview-history',
+  path: '/mock-interview-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -184,6 +197,11 @@ const PlacementCellRoute = PlacementCellRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoadmapDrillRoute = RoadmapDrillRouteImport.update({
+  id: '/roadmap-drill',
+  path: '/roadmap-drill',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SelfTrainingRoute = SelfTrainingRouteImport.update({
@@ -264,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/companies': typeof CompaniesRoute
   '/copilot': typeof CopilotRoute
   '/dashboard': typeof DashboardRoute
+  '/discussion-forum': typeof DiscussionForumRoute
   '/drives': typeof DrivesRoute
   '/dsa-training': typeof DsaTrainingRoute
   '/english-training': typeof EnglishTrainingRoute
@@ -276,9 +295,11 @@ export interface FileRoutesByFullPath {
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
   '/mock-interview': typeof MockInterviewRoute
+  '/mock-interview-history': typeof MockInterviewHistoryRoute
   '/notifications': typeof NotificationsRoute
   '/placement-cell': typeof PlacementCellRoute
   '/reports': typeof ReportsRoute
+  '/roadmap-drill': typeof RoadmapDrillRoute
   '/self-training': typeof SelfTrainingRoute
   '/situational-training': typeof SituationalTrainingRoute
   '/student': typeof StudentRoute
@@ -305,6 +326,7 @@ export interface FileRoutesByTo {
   '/companies': typeof CompaniesRoute
   '/copilot': typeof CopilotRoute
   '/dashboard': typeof DashboardRoute
+  '/discussion-forum': typeof DiscussionForumRoute
   '/drives': typeof DrivesRoute
   '/dsa-training': typeof DsaTrainingRoute
   '/english-training': typeof EnglishTrainingRoute
@@ -317,9 +339,11 @@ export interface FileRoutesByTo {
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
   '/mock-interview': typeof MockInterviewRoute
+  '/mock-interview-history': typeof MockInterviewHistoryRoute
   '/notifications': typeof NotificationsRoute
   '/placement-cell': typeof PlacementCellRoute
   '/reports': typeof ReportsRoute
+  '/roadmap-drill': typeof RoadmapDrillRoute
   '/self-training': typeof SelfTrainingRoute
   '/situational-training': typeof SituationalTrainingRoute
   '/student': typeof StudentRoute
@@ -347,6 +371,7 @@ export interface FileRoutesById {
   '/companies': typeof CompaniesRoute
   '/copilot': typeof CopilotRoute
   '/dashboard': typeof DashboardRoute
+  '/discussion-forum': typeof DiscussionForumRoute
   '/drives': typeof DrivesRoute
   '/dsa-training': typeof DsaTrainingRoute
   '/english-training': typeof EnglishTrainingRoute
@@ -359,9 +384,11 @@ export interface FileRoutesById {
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
   '/mock-interview': typeof MockInterviewRoute
+  '/mock-interview-history': typeof MockInterviewHistoryRoute
   '/notifications': typeof NotificationsRoute
   '/placement-cell': typeof PlacementCellRoute
   '/reports': typeof ReportsRoute
+  '/roadmap-drill': typeof RoadmapDrillRoute
   '/self-training': typeof SelfTrainingRoute
   '/situational-training': typeof SituationalTrainingRoute
   '/student': typeof StudentRoute
@@ -390,6 +417,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/copilot'
     | '/dashboard'
+    | '/discussion-forum'
     | '/drives'
     | '/dsa-training'
     | '/english-training'
@@ -402,9 +430,11 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/logout'
     | '/mock-interview'
+    | '/mock-interview-history'
     | '/notifications'
     | '/placement-cell'
     | '/reports'
+    | '/roadmap-drill'
     | '/self-training'
     | '/situational-training'
     | '/student'
@@ -431,6 +461,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/copilot'
     | '/dashboard'
+    | '/discussion-forum'
     | '/drives'
     | '/dsa-training'
     | '/english-training'
@@ -443,9 +474,11 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/logout'
     | '/mock-interview'
+    | '/mock-interview-history'
     | '/notifications'
     | '/placement-cell'
     | '/reports'
+    | '/roadmap-drill'
     | '/self-training'
     | '/situational-training'
     | '/student'
@@ -472,6 +505,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/copilot'
     | '/dashboard'
+    | '/discussion-forum'
     | '/drives'
     | '/dsa-training'
     | '/english-training'
@@ -484,9 +518,11 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/logout'
     | '/mock-interview'
+    | '/mock-interview-history'
     | '/notifications'
     | '/placement-cell'
     | '/reports'
+    | '/roadmap-drill'
     | '/self-training'
     | '/situational-training'
     | '/student'
@@ -514,6 +550,7 @@ export interface RootRouteChildren {
   CompaniesRoute: typeof CompaniesRoute
   CopilotRoute: typeof CopilotRoute
   DashboardRoute: typeof DashboardRoute
+  DiscussionForumRoute: typeof DiscussionForumRoute
   DrivesRoute: typeof DrivesRoute
   DsaTrainingRoute: typeof DsaTrainingRoute
   EnglishTrainingRoute: typeof EnglishTrainingRoute
@@ -526,9 +563,11 @@ export interface RootRouteChildren {
   LeaderboardRoute: typeof LeaderboardRoute
   LogoutRoute: typeof LogoutRoute
   MockInterviewRoute: typeof MockInterviewRoute
+  MockInterviewHistoryRoute: typeof MockInterviewHistoryRoute
   NotificationsRoute: typeof NotificationsRoute
   PlacementCellRoute: typeof PlacementCellRoute
   ReportsRoute: typeof ReportsRoute
+  RoadmapDrillRoute: typeof RoadmapDrillRoute
   SelfTrainingRoute: typeof SelfTrainingRoute
   SituationalTrainingRoute: typeof SituationalTrainingRoute
   StudentRoute: typeof StudentRoute
@@ -629,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/discussion-forum': {
+      id: '/discussion-forum'
+      path: '/discussion-forum'
+      fullPath: '/discussion-forum'
+      preLoaderRoute: typeof DiscussionForumRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/drives': {
       id: '/drives'
       path: '/drives'
@@ -713,6 +759,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MockInterviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mock-interview-history': {
+      id: '/mock-interview-history'
+      path: '/mock-interview-history'
+      fullPath: '/mock-interview-history'
+      preLoaderRoute: typeof MockInterviewHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notifications': {
       id: '/notifications'
       path: '/notifications'
@@ -732,6 +785,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roadmap-drill': {
+      id: '/roadmap-drill'
+      path: '/roadmap-drill'
+      fullPath: '/roadmap-drill'
+      preLoaderRoute: typeof RoadmapDrillRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/self-training': {
@@ -834,6 +894,7 @@ const rootRouteChildren: RootRouteChildren = {
   CompaniesRoute: CompaniesRoute,
   CopilotRoute: CopilotRoute,
   DashboardRoute: DashboardRoute,
+  DiscussionForumRoute: DiscussionForumRoute,
   DrivesRoute: DrivesRoute,
   DsaTrainingRoute: DsaTrainingRoute,
   EnglishTrainingRoute: EnglishTrainingRoute,
@@ -846,9 +907,11 @@ const rootRouteChildren: RootRouteChildren = {
   LeaderboardRoute: LeaderboardRoute,
   LogoutRoute: LogoutRoute,
   MockInterviewRoute: MockInterviewRoute,
+  MockInterviewHistoryRoute: MockInterviewHistoryRoute,
   NotificationsRoute: NotificationsRoute,
   PlacementCellRoute: PlacementCellRoute,
   ReportsRoute: ReportsRoute,
+  RoadmapDrillRoute: RoadmapDrillRoute,
   SelfTrainingRoute: SelfTrainingRoute,
   SituationalTrainingRoute: SituationalTrainingRoute,
   StudentRoute: StudentRoute,

@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import { AppNavHeader } from "@/components/tb/app-nav";
 import { me, gdList, type AuthUser, type GdTrainingRecord } from "@/lib/api";
+import { usePagedHistoryList, type GdRollupRow } from "@/lib/paged-history";
 import { GateLoading, GateError } from "@/components/load-state";
 import { cn } from "@/lib/utils";
 
@@ -95,15 +95,18 @@ function GdHistoryPage() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Paged: a student who practises weekly ends up with a long record, so the
+  // list arrives a page at a time and grows as the reader scrolls.
   const {
-    data: rounds = [],
-    isLoading,
+    sessions: rounds,
+    listEnd,
+    isPending,
     isError,
     refetch,
-  } = useQuery({
+    isFetchingNextPage,
+  } = usePagedHistoryList<GdTrainingRecord, GdRollupRow>({
     queryKey: ["gd-history"],
     queryFn: gdList,
-    staleTime: 30_000,
   });
 
   useEffect(() => {
@@ -112,11 +115,7 @@ function GdHistoryPage() {
       .then(async (current) => {
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
-          return;
-        }
-        if (current.profile_complete === false) {
-          void navigate({ to: "/onboarding", replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         setUser(current);
@@ -176,7 +175,7 @@ function GdHistoryPage() {
           </p>
         </div>
 
-        {isLoading &&
+        {isPending &&
           Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
@@ -201,7 +200,7 @@ function GdHistoryPage() {
           </div>
         )}
 
-        {!isLoading && !isError && rounds.length === 0 && (
+        {!isPending && !isError && rounds.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card/40 px-6 py-16 text-center">
             <History className="size-10 text-muted-foreground" />
             <h2 className="mt-4 text-lg font-semibold">No rounds yet</h2>
@@ -223,6 +222,15 @@ function GdHistoryPage() {
           {rounds.map((round) => (
             <RoundCard key={round.id} round={round} />
           ))}
+
+          {/* Reaching this row means the reader has seen every round loaded so
+              far, so the next page goes out and the spinner sits here until it
+              lands. */}
+          <div ref={listEnd} aria-hidden className="flex justify-center py-4">
+            {isFetchingNextPage ? (
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            ) : null}
+          </div>
         </div>
       </main>
     </div>

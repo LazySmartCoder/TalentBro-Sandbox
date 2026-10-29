@@ -13,6 +13,7 @@ import {
   type AuthUser,
   type GdCompleteBody,
   type GdPanelist,
+  type GdTrainingRecord,
 } from "@/lib/api";
 import { GateError, GateLoading } from "@/components/load-state";
 import { cn } from "@/lib/utils";
@@ -77,28 +78,21 @@ const MIN_AI_GAP_MS = 3500;
 // carry the discussion on without them.
 const USER_WAIT_MS = 10_000;
 
+// Clicking into the composer buys this much silence to start typing. An empty
+// focused field must not freeze the room — only actual text (or a live mic)
+// holds the floor until send.
+const FOCUS_GRACE_MS = 2500;
+
 // The round starts with a 10s ice-break window where the floor is the
 // student's alone. No topic announcement — just a visible countdown.
 const ICE_BREAK_SECONDS = 10;
 
-const CRITERIA_LABELS = [
-  "Content Quality",
-  "Reasoning",
-  "Communication",
-  "Confidence",
-  "Teamwork",
-  "Initiative",
-  "Active Listening",
-  "Build / Challenge",
-];
-
-type GdResult = {
-  criteria: { label: string; score: number }[];
-  overall: number;
-  grade: string;
-  strengths: string[];
-  improvementAreas: string[];
-};
+// A round the student barely spoke in is saved unscored server-side: the
+// backend stores overall 0 / empty grade, and the client shows that honestly
+// rather than inventing a number of its own.
+function isScoredSession(session: GdTrainingRecord | null): session is GdTrainingRecord {
+  return !!session && session.overall_score > 0;
+}
 
 // Indian voice pools so every panelist sounds local to the GD context. Only
 // the en-IN voices edge-tts reliably serves are used (NeerjaExpressive and
@@ -122,12 +116,52 @@ function toMembers(panelists: GdPanelist[]): Member[] {
   });
 }
 
+// Last-resort openers for when even the topic-aware backend fallback is
+// unreachable. Deliberately stance-free rather than about one hardcoded topic,
+// so a degraded round never opens by contradicting the topic on screen.
 const CANNED_OPENER_A =
-  "I think remote work should definitely be the default for IT companies. It offers real flexibility and opens up a much wider talent pool.";
+  "I'll start us off — my instinct is that this matters more for students starting out than for anyone else, and that shapes how I see it.";
 const CANNED_OPENER_B =
-  "Hey everyone, I'd build on that — the flexibility is genuine, but we should also ask who carries the cost before making it the default.";
+  "Building on that — the direction feels right, but I'd want us to settle who actually carries the cost before the whole group agrees.";
 
-function continuationLine(topic: string, used: string[] = []): string {
+type TranscriptEntry = { name: string; content: string; from?: string };
+
+// The student's most recent line, when theirs is the last thing said. The
+// `from` tag is authoritative; the name is only a fallback for entries that
+// predate it (the backend matches on the same name).
+function lastStudentPoint(transcript: TranscriptEntry[], student: string): TranscriptEntry | null {
+  for (let i = transcript.length - 1; i >= 0; i -= 1) {
+    const entry = transcript[i];
+    if (!entry || !entry.content.trim()) continue;
+    if (entry.from === "you" || entry.name === student) return entry;
+    return null;
+  }
+  return null;
+}
+
+// Offline fallback so a line always lands. When the student has just spoken the
+// acknowledgement bank is preferred, so their point still gets a visible
+// response when Gemini is unavailable — the same rule the live prompt applies.
+function continuationLine(
+  topic: string,
+  used: string[] = [],
+  transcript: TranscriptEntry[] = [],
+  student = "Student",
+): string {
+  const point = lastStudentPoint(transcript, student);
+  if (point) {
+    const ackBank = [
+      `That's a fair point, ${student} — but let me push on one part of it.`,
+      "Fair point. What I'd add is the cost side of it, because someone always ends up paying there.",
+      "I take that, though I'd test it against one everyday case before the whole group agrees.",
+      "That lands. The part I'd want to stress is who this actually reaches in a smaller city.",
+      "Good angle. I'd build on it — here's the bit I don't think we've covered yet.",
+      "Strong take. Let me add a consequence nobody has mentioned so far.",
+    ];
+    const fresh = ackBank.filter((line) => !used.includes(line));
+    const pool = fresh.length ? fresh : ackBank;
+    return pool[Math.floor(Math.random() * pool.length)] ?? "";
+  }
   const bank = [
     `Building on that, here's another angle on ${topic}.`,
     "Fair point. But let's also ask who actually bears the cost here.",
@@ -144,28 +178,6 @@ function continuationLine(topic: string, used: string[] = []): string {
 // Escape user-supplied panelist names so they are safe inside a RegExp.
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function configureResult(userMsgs: number): GdResult {
-  const base = Math.min(58 + userMsgs * 3, 82);
-  const criteria = CRITERIA_LABELS.map((label) => ({
-    label,
-    score: Math.min(100, Math.max(0, Math.round(base + Math.random() * 12 - 6))),
-  }));
-  const overall = Math.round(criteria.reduce((s, c) => s + c.score, 0) / criteria.length);
-  const grade =
-    overall >= 85 ? "Excellent" : overall >= 70 ? "Good" : overall >= 50 ? "Average" : "Needs work";
-  const sorted = [...criteria].sort((a, b) => b.score - a.score);
-  return {
-    criteria,
-    overall,
-    grade,
-    strengths: sorted.slice(0, 3).map((c) => c.label),
-    improvementAreas: sorted
-      .slice(-3)
-      .reverse()
-      .map((c) => c.label),
-  };
 }
 
 function formatClock(total: number): string {
@@ -233,7 +245,20 @@ function GdRoom() {
   const [left, setLeft] = useState(ROUND_SECONDS);
   const [iceBreak, setIceBreak] = useState(false);
   const [iceLeft, setIceLeft] = useState(0);
-  const [result, setResult] = useState<GdResult | null>(null);
+  const [result, setResult] = useState<GdTrainingRecord | null>(null);
+
+  // On phones/tablets the participants rail is an off-canvas drawer toggled from
+  // the room header; from `md` up it is the permanent left column.
+  const [railOpen, setRailOpen] = useState(false);
+
+  useEffect(() => {
+    if (!railOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRailOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [railOpen]);
 
   const idRef = useRef(0);
   const userMsgsRef = useRef(0);
@@ -245,7 +270,17 @@ function GdRoom() {
   const draftRef = useRef("");
   const forcedSpeakerRef = useRef<MemberKey | null>(null);
   const fallbackUsedRef = useRef<string[]>([]);
+  // The student owns the floor while they have unsent text or a live mic, and
+  // it survives until they send or clear the box. Held as a ref (not state) so
+  // the AI loop reads it synchronously rather than one render behind.
+  const userFloorRef = useRef(false);
+  // Focus alone is not ownership — clicking in and sitting there must not freeze
+  // the room. This is the short grace window that gives them time to type.
+  const focusGraceUntilRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Settles the in-flight playSpeech() promise when speech is cut short, so the
+  // AI loop re-checks the floor immediately instead of waiting out the clip.
+  const speechResolveRef = useRef<(() => void) | null>(null);
   const pendingAudioRef = useRef<HTMLAudioElement[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -268,7 +303,7 @@ function GdRoom() {
   const maxLenTimerRef = useRef<number | null>(null);
   const lastResultAtRef = useRef(0);
   const lastRebuildAtRef = useRef(0);
-  const recordingRef = useRef(false); // mirrors `recording` for the AI loop guards
+  const recordingRef = useRef(false); // set synchronously by the mic handlers, read by the AI loop
 
   // Refs mirroring the current round so a save can happen even after the page
   // tears down (back nav, tab close) without depending on stale state.
@@ -300,6 +335,11 @@ function GdRoom() {
       audioRef.current = null;
     }
     pendingAudioRef.current = [];
+    // Pausing does not fire `ended`, so playSpeech() would otherwise hang until
+    // the browser got round to erroring the emptied src. Settle it here.
+    const settle = speechResolveRef.current;
+    speechResolveRef.current = null;
+    if (settle) settle();
   }
 
   // Speak a member line via TTS. Resolves ONLY when playback finishes (or the
@@ -318,8 +358,12 @@ function GdRoom() {
         const done = () => {
           audio.removeEventListener("ended", done);
           audio.removeEventListener("error", done);
+          if (speechResolveRef.current === done) speechResolveRef.current = null;
           resolve();
         };
+        // Exposed so stopSpeech() can cut this line short the moment the student
+        // takes the floor.
+        speechResolveRef.current = done;
         audio.addEventListener("ended", done, { once: true });
         audio.addEventListener("error", done, { once: true });
         audio.play().catch(() => {
@@ -374,6 +418,8 @@ function GdRoom() {
     setPhase("opening");
     setBusy(false);
     draftRef.current = "";
+    userFloorRef.current = false;
+    focusGraceUntilRef.current = 0;
     lastUserMsgAtRef.current = Date.now();
     void (async () => {
       // Ice-break window: the floor is the student's alone. If they stay
@@ -383,9 +429,14 @@ function GdRoom() {
       if (token !== runTokenRef.current) return;
       setIceBreak(false);
 
-      // If the student is mid-recording, wait for them to finish before the AI
-      // openers speak over their mic.
-      while (recordingRef.current) {
+      // The student may start their opener mid-countdown. Wait for them to send
+      // it — or clear the composer — before any panelist speaks.
+      while (
+        recordingRef.current ||
+        userFloorRef.current ||
+        draftRef.current.trim().length > 0 ||
+        Date.now() < focusGraceUntilRef.current
+      ) {
         if (token !== runTokenRef.current) return;
         await sleep(300);
       }
@@ -438,21 +489,22 @@ function GdRoom() {
     })();
   }
 
-  function endRound() {
+  // The round is scored by the backend from the transcript it stores. The
+  // client waits for that answer and renders exactly what came back.
+  async function endRound() {
     runTokenRef.current += 1;
     clearTimers();
     stopSpeech();
     setPhase("ended");
     setBusy(true);
-    const finalResult = configureResult(userMsgsRef.current);
-    setResult(finalResult);
-    void saveRound(finalResult);
+    setResult(await saveRound());
   }
 
   // Persist the round to the backend. Guarded by savedRef so end, page exit and
-  // tab close each try exactly once.
-  async function saveRound(result: GdResult) {
-    if (savedRef.current) return;
+  // tab close each try exactly once. Resolves with the saved round, or null if
+  // it could not be saved (the scorecard then says so instead of guessing).
+  async function saveRound(): Promise<GdTrainingRecord | null> {
+    if (savedRef.current) return null;
     savedRef.current = true;
     const studentName = userRef.current?.name || "Student";
     const participants: GdCompleteBody["participants"] = [
@@ -465,22 +517,35 @@ function GdRoom() {
       from: t.from ?? "",
     }));
     try {
-      await gdComplete({
-        topic: topicRef.current,
-        participants,
-        transcript,
-        result,
-      });
+      const { session } = await gdComplete({ topic: topicRef.current, participants, transcript });
+      return session;
     } catch {
       savedRef.current = false;
+      return null;
     }
   }
 
   async function send() {
-    const text = draft.trim();
-    if (!text || phase === "ended") return;
+    if (phase === "ended") return;
+    // Pressing send while the mic is live has to carry the words already spoken
+    // and tear the recognizer down. Otherwise it keeps streaming transcripts
+    // back into the composer, so the text reappears after the message is out.
+    if (recording || sttActiveRef.current) {
+      const spoken = liveSttText();
+      const base = sttBaseRef.current.trim();
+      const pending = spoken ? (base ? `${base} ${spoken}` : spoken) : base;
+      stopMicRecording();
+      setDraft(pending);
+      draftRef.current = pending;
+    }
+    const text = draftRef.current.trim();
+    if (!text) return;
     setDraft("");
     draftRef.current = "";
+    // The point has landed — hand the floor back so the group can carry on.
+    // USER_WAIT_MS below then keeps the room quiet for a beat so the panelists
+    // reply to this point rather than talking over each other.
+    userFloorRef.current = false;
     // If the student calls out a specific panelist (e.g. "come again rahul"),
     // that panelist must be the one who responds next.
     const regex = members.map((m) => escapeRegex(m.name)).join("|");
@@ -508,6 +573,8 @@ function GdRoom() {
     }
     setRecordingError(null);
     setRecording(true);
+    recordingRef.current = true;
+    userFloorRef.current = true;
     sttStopRef.current = false;
     sttActiveRef.current = true;
     sttFinalsRef.current = "";
@@ -519,6 +586,7 @@ function GdRoom() {
     sttLangIdxRef.current = 0;
     // Don't let a panelist talk over the student while they record.
     stopSpeech();
+    userFloorRef.current = true;
     if (maxLenTimerRef.current !== null) window.clearTimeout(maxLenTimerRef.current);
     maxLenTimerRef.current = window.setTimeout(() => {
       maxLenTimerRef.current = null;
@@ -684,6 +752,7 @@ function GdRoom() {
     clearAutoStop();
     clearMaxTimer();
     recognitionRef.current = null;
+    recordingRef.current = false;
     setRecording(false);
     sttFinalsRef.current = "";
     sttInterimsRef.current = "";
@@ -701,6 +770,7 @@ function GdRoom() {
   function stopMicRecording() {
     clearAutoStop();
     clearMaxTimer();
+    recordingRef.current = false;
     if (!sttActiveRef.current && !recognitionRef.current) {
       setRecording(false);
       return;
@@ -745,11 +815,7 @@ function GdRoom() {
       .then(async (current) => {
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
-          return;
-        }
-        if (current.profile_complete === false) {
-          void navigate({ to: "/onboarding", replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         let panelists: GdPanelist[] = [];
@@ -777,10 +843,6 @@ function GdRoom() {
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
-
-  useEffect(() => {
-    recordingRef.current = recording;
-  }, [recording]);
 
   // Browsers block autoplay until the user interacts; resume any GD speech
   // that was held back on the first pointer/key interaction.
@@ -813,13 +875,13 @@ function GdRoom() {
   }, [status]);
 
   // A round is saved no matter how it ends — end button, timer run-out, back
-  // navigation, or closing the tab. Short/silent rounds are saved too.
+  // navigation, or closing the tab. Short/silent rounds are saved too, and the
+  // backend simply leaves those unscored. No client-side score is sent.
   useEffect(() => {
     const flush = () => {
       if (savedRef.current || !startedRef.current) return;
       savedRef.current = true;
       const studentName = userRef.current?.name || "Student";
-      const result = configureResult(userMsgsRef.current);
       gdCompleteKeepalive({
         topic: topicRef.current,
         participants: [
@@ -831,7 +893,6 @@ function GdRoom() {
           content: t.content,
           from: t.from ?? "",
         })),
-        result,
       });
     };
     window.addEventListener("pagehide", flush);
@@ -871,9 +932,17 @@ function GdRoom() {
         return;
       }
 
-      // The moment the student starts typing, hold the discussion and give
-      // them the floor first.
-      if (draftRef.current.trim().length > 0) {
+      // The student is holding the floor: unsent text, a live mic, or the short
+      // window after clicking in. Held until they send or clear the box, so
+      // backspacing to empty mid-sentence does not hand it straight back.
+      // The draft check is a backstop for any text that arrived without going
+      // through onChange (voice input commits straight into the draft).
+      if (
+        userFloorRef.current ||
+        recordingRef.current ||
+        draftRef.current.trim().length > 0 ||
+        Date.now() < focusGraceUntilRef.current
+      ) {
         timer = window.setTimeout(() => void tick(), 600);
         return;
       }
@@ -922,7 +991,14 @@ function GdRoom() {
           // fall back to the canned line so the discussion never stalls
         }
         if (!text) {
-          text = continuationLine(topic, fallbackUsedRef.current);
+          // Pass the transcript so the fallback can respond to the student when
+          // their line is the last thing said.
+          text = continuationLine(
+            topic,
+            fallbackUsedRef.current,
+            [...transcriptRef.current],
+            user?.name || "Student",
+          );
           if (text) fallbackUsedRef.current.push(text);
         }
         const recentTexts = transcriptRef.current
@@ -932,12 +1008,22 @@ function GdRoom() {
         if (!collides) break;
         text = "";
       }
-      if (!text) text = continuationLine(topic);
+      if (!text) {
+        // Retry budget spent (repeated line) — same transcript-aware fallback,
+        // just without extending the used-bank.
+        text = continuationLine(topic, [], [...transcriptRef.current], user?.name || "Student");
+      }
       setThinking(false);
       if (cancelled || runTokenRef.current !== token) return;
-      // The student typed or sent something while this line was generating;
-      // drop it and hand the floor back to them.
-      if (draftRef.current.trim().length > 0 || lastUserMsgAtRef.current > startedAt) {
+      // The student focused the composer, typed, started the mic or sent something
+      // while this line was generating; drop it and hand the floor back to them.
+      if (
+        userFloorRef.current ||
+        recordingRef.current ||
+        draftRef.current.trim().length > 0 ||
+        Date.now() < focusGraceUntilRef.current ||
+        lastUserMsgAtRef.current > startedAt
+      ) {
         timer = window.setTimeout(() => void tick(), 600);
         return;
       }
@@ -961,6 +1047,9 @@ function GdRoom() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, busy, thinking]);
 
+  // Autofocus the composer as the round runs. Deliberately does NOT touch the
+  // floor: the input already holds the student's unsent text, and the AI loop
+  // re-derives the hold from that, so focusing cannot resurrect a released one.
   useEffect(() => {
     if (phase !== "ended") inputRef.current?.focus();
   }, [phase, busy, messages]);
@@ -1054,9 +1143,25 @@ function GdRoom() {
         </div>
       )}
 
-      <main className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-4 pb-4 sm:px-6">
+      {railOpen && (
+        <button
+          type="button"
+          aria-label="Close participants"
+          onClick={() => setRailOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+        />
+      )}
+
+      <main className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-4 pb-4 pt-3 sm:px-6 md:pt-0">
         <div className="flex min-h-0 flex-1 gap-4">
-          <aside className="hidden w-72 shrink-0 flex-col gap-4 py-4 md:flex">
+          <aside
+            className={cn(
+              "z-50 w-72 shrink-0 flex-col gap-4 py-4",
+              railOpen ? "flex" : "hidden",
+              "fixed inset-y-0 left-0 overflow-y-auto border-r border-border bg-background px-4 shadow-2xl",
+              "md:relative md:inset-auto md:flex md:overflow-visible md:border-r-0 md:bg-transparent md:px-0 md:shadow-none",
+            )}
+          >
             <div className="rounded-2xl border border-border bg-card/70 p-4 backdrop-blur">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                 Today's topic
@@ -1072,7 +1177,7 @@ function GdRoom() {
                   <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> Live
                 </span>
               </div>
-              <ul className="mt-3 space-y-1.5 overflow-y-auto">
+              <ul className="no-scrollbar mt-3 space-y-1.5 overflow-y-auto">
                 {inRoom.map((p) => (
                   <li
                     key={p.from}
@@ -1105,16 +1210,27 @@ function GdRoom() {
           </aside>
 
           <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card/70 backdrop-blur">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold tracking-tight">"{topic}"</p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {phase === "opening"
-                    ? "Ice-break \u2014 say your opening point"
-                    : phase === "live"
-                      ? "Discussion live"
-                      : "Round complete"}
-                </p>
+            <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5 sm:px-5 sm:py-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setRailOpen(true)}
+                  aria-label="Show participants"
+                  aria-expanded={railOpen}
+                  className="grid size-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:border-foreground hover:text-foreground md:hidden"
+                >
+                  <Users className="size-4" />
+                </button>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold tracking-tight">"{topic}"</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {phase === "opening"
+                      ? "Ice-break \u2014 say your opening point"
+                      : phase === "live"
+                        ? "Discussion live"
+                        : "Round complete"}
+                  </p>
+                </div>
               </div>
               {phase !== "ended" && (
                 <div className="flex shrink-0 items-center gap-2">
@@ -1149,18 +1265,25 @@ function GdRoom() {
               )}
             </div>
 
-            {phase === "ended" && result ? (
-              <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-                <Scorecard
-                  result={result}
-                  name={name}
-                  onReplay={startOpening}
-                  onBack={() => void navigate({ to: "/gd-training", replace: true })}
-                />
+            {phase === "ended" ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                {busy && !result ? (
+                  <div className="mx-auto flex max-w-2xl items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Scoring your round from the transcript…
+                  </div>
+                ) : (
+                  <Scorecard
+                    session={result}
+                    name={name}
+                    onReplay={startOpening}
+                    onBack={() => void navigate({ to: "/gd-training", replace: true })}
+                  />
+                )}
               </div>
             ) : (
               <>
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
+                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
                   <div className="mx-auto max-w-2xl space-y-3.5">
                     {messages.map((m, i) => {
                       const prev = messages[i - 1];
@@ -1228,7 +1351,7 @@ function GdRoom() {
                       );
                     })}
 
-                    {busy && phase !== "ended" && (
+                    {busy && (
                       <div className="flex w-full items-end gap-2.5">
                         <span className="w-9 shrink-0" />
                         <div className="mb-3 rounded-2xl rounded-bl-md border border-border bg-card px-4 py-3 shadow-sm">
@@ -1245,7 +1368,30 @@ function GdRoom() {
                     <textarea
                       ref={inputRef}
                       value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
+                      onFocus={() => {
+                        // Clicking in buys a short grace window to start typing,
+                        // not the floor itself — an empty focused field must
+                        // never freeze the discussion.
+                        focusGraceUntilRef.current = Date.now() + FOCUS_GRACE_MS;
+                      }}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        // Write the ref directly: the AI loop reads it, and a
+                        // useEffect mirror would lag a render behind the keys.
+                        draftRef.current = next;
+                        setDraft(next);
+                        if (next.length > 0) {
+                          // The floor is held for as long as there is unsent
+                          // text, whatever phase we are in.
+                          userFloorRef.current = true;
+                          // Cut any panelist off mid-sentence on the first
+                          // keystroke of a burst.
+                          stopSpeech();
+                        } else {
+                          // Emptied the composer deliberately — hand it back.
+                          userFloorRef.current = false;
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -1253,16 +1399,17 @@ function GdRoom() {
                         }
                       }}
                       rows={1}
-                      disabled={busy || phase === "ended"}
+                      disabled={busy}
                       placeholder={
                         recording
                           ? "Listening…"
                           : phase === "opening"
-                            ? "Ice-break \u2014 make your opening point…"
+                            ? "Ice-break — make your opening point…"
                             : busy
                               ? "The group is discussing…"
                               : "Share your point…"
                       }
+
                       className="max-h-32 min-h-10 flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
                     />
                     <button
@@ -1271,7 +1418,7 @@ function GdRoom() {
                         if (recording) stopMicRecording();
                         else startMicRecording();
                       }}
-                      disabled={!micReady || busy || phase === "ended"}
+                      disabled={!micReady || busy}
                       aria-label={recording ? "Stop recording" : "Record voice"}
                       className={cn(
                         "grid size-10 shrink-0 cursor-pointer place-items-center rounded-xl border border-border text-foreground transition-colors hover:bg-muted",
@@ -1317,16 +1464,76 @@ function GdRoom() {
 }
 
 function Scorecard({
-  result,
+  session,
   name,
   onReplay,
   onBack,
 }: {
-  result: GdResult;
+  session: GdTrainingRecord | null;
   name: string;
   onReplay: () => void;
   onBack: () => void;
 }) {
+  const actions = (
+    <div className="flex items-center justify-center gap-3">
+      <button
+        type="button"
+        onClick={onReplay}
+        className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-foreground px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors hover:bg-foreground hover:text-background"
+      >
+        <RotateCcw className="size-3" />
+        Play again
+      </button>
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex cursor-pointer items-center rounded-full border border-border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+      >
+        Back to instructions
+      </button>
+    </div>
+  );
+
+  if (!session) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-6 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Round ended
+          </p>
+          <p className="mt-3 text-sm font-semibold">This round has not been scored</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            TalentBro could not score this round, so it has no score and has not counted towards
+            your self-training rank. Play it again to get an assessment.
+          </p>
+        </div>
+        {actions}
+      </div>
+    );
+  }
+
+  // A round the student barely spoke in is stored unscored. Say so rather than
+  // showing a 0 that looks like a bad performance.
+  if (!isScoredSession(session)) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-6 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Round complete
+          </p>
+          <p className="mt-3 text-sm font-semibold">Not enough of you in this one to score</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {name}, TalentBro could not find enough of your own points in the discussion to judge it
+            fairly, so this round has no score and has not counted towards your self-training rank.
+            Take the floor a few more times next round and you&apos;ll get a real assessment.
+          </p>
+        </div>
+        {actions}
+      </div>
+    );
+  }
+
+  const result = session;
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="rounded-2xl border border-border bg-card p-6 text-center">
@@ -1337,19 +1544,24 @@ function Scorecard({
         <div
           className="mx-auto mt-5 grid size-36 place-items-center rounded-full"
           style={{
-            background: `conic-gradient(var(--foreground) ${Math.round(result.overall * 3.6)}deg, var(--muted) 0deg)`,
+            background: `conic-gradient(var(--foreground) ${Math.round(result.overall_score * 3.6)}deg, var(--muted) 0deg)`,
           }}
         >
           <div className="grid size-28 place-items-center rounded-full bg-card">
             <span>
               <span className="font-[family-name:var(--font-display)] text-4xl font-bold tracking-tight">
-                {result.overall}
+                {result.overall_score}
               </span>
               <span className="ml-1 text-xs text-muted-foreground">/100</span>
             </span>
           </div>
         </div>
         <p className="mt-3 text-sm font-semibold">{result.grade}</p>
+        {result.overall_summary ? (
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            {result.overall_summary}
+          </p>
+        ) : null}
         <div className="mt-5 space-y-2 text-left">
           {result.criteria.map((c) => (
             <div key={c.label} className="flex items-center gap-3">
@@ -1387,7 +1599,7 @@ function Scorecard({
             Work on
           </p>
           <ul className="mt-3 space-y-2">
-            {result.improvementAreas.map((s) => (
+            {result.improvement_areas.map((s) => (
               <li key={s} className="flex items-start gap-2 text-[13px]">
                 <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" />
                 {s}
@@ -1397,23 +1609,7 @@ function Scorecard({
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={onReplay}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-foreground px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors hover:bg-foreground hover:text-background"
-        >
-          <RotateCcw className="size-3" />
-          Play again
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex cursor-pointer items-center rounded-full border border-border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
-        >
-          Back to instructions
-        </button>
-      </div>
+      {actions}
     </div>
   );
 }

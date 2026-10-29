@@ -39,7 +39,7 @@ export function activateEnvironment(env: SandboxEnv): { role: SandboxRole; entry
   if (env === "student") {
     setSandboxEnv("student");
     setSandboxRole("student");
-    return { role: "student", entry: "/student" };
+    return { role: "student", entry: "/chat" };
   }
   if (env === "copilot") {
     setSandboxEnv("copilot");
@@ -77,6 +77,7 @@ export function resetSandboxAll(): void {
       "sandbox.basicmath",
       "sandbox.situational",
       "sandbox.notifRead",
+      "sandbox.forum",
     ];
     for (const k of keys) localStorage.removeItem(k);
   } catch {}

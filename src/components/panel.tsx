@@ -63,7 +63,14 @@ const members: Member[] = [
     ai: true,
     img: panelistPhoto("carl"),
   },
-  { id: "atlas", name: "Atlas", role: "Integrity Monitor", mark: "At", ai: true, img: panelistPhoto("atlas") },
+  {
+    id: "atlas",
+    name: "Atlas",
+    role: "Integrity Monitor",
+    mark: "At",
+    ai: true,
+    img: panelistPhoto("atlas"),
+  },
   { id: "you", name: "You", role: "Candidate", mark: "CA", ai: false },
 ];
 
@@ -300,6 +307,7 @@ export function PanelRoom({
   messages = [],
   loading = false,
   done = false,
+  unscored = false,
   panelists,
   paused = false,
   breakLeft = 0,
@@ -317,6 +325,9 @@ export function PanelRoom({
   messages?: PanelMsg[];
   loading?: boolean;
   done?: boolean;
+  // The interview finished but the backend declined to score it (the candidate
+  // did not give it enough answers). Never dress this up as a real result.
+  unscored?: boolean;
   panelists?: string[] | undefined;
   paused?: boolean;
   breakLeft?: number;
@@ -627,11 +638,13 @@ export function PanelRoom({
               <div className="rounded-lg border border-border p-5">
                 <p className="font-[family-name:var(--font-display)] text-2xl">Feedback</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {done
-                    ? "Your interview is complete. See how the panel evaluated your performance."
-                    : "Feedback will be available after the interview is complete."}
+                  {unscored
+                    ? "There is no score for this one. You didn't give the panel enough of your own answers to assess, so it hasn't been scored and hasn't counted towards your mock-interview rank."
+                    : done
+                      ? "Your interview is complete. See how the panel evaluated your performance."
+                      : "Feedback will be available after the interview is complete."}
                 </p>
-                {done && onViewAnalysis && (
+                {done && !unscored && onViewAnalysis && (
                   <button
                     onClick={onViewAnalysis}
                     className="mt-4 rounded-lg border border-foreground px-5 py-2.5 text-[11px] uppercase tracking-[0.2em] transition-colors hover:bg-foreground hover:text-background"

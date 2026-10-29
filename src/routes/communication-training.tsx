@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowLeft,
   AudioLines,
@@ -10,7 +10,6 @@ import {
   Mic,
 } from "lucide-react";
 import { AppNavHeader } from "@/components/tb/app-nav";
-import { panelistPhoto } from "@/lib/panelists";
 import { browserAIStatus, createBrowserSession, type BrowserAISession } from "@/lib/browser-ai";
 import {
   ApiError,
@@ -25,6 +24,7 @@ import {
   type ChatResponse,
   type CommunicationTrainingSession,
 } from "@/lib/api";
+import { alignWordTimesMs, wordStartOffsets } from "@/lib/tts-timings";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { GateError, GateLoading, useQuoteSplash } from "@/components/load-state";
 
@@ -175,54 +175,6 @@ function MayaText({ text, activeWord }: { text: string; activeWord: number }) {
       })}
     </>
   );
-}
-
-// Map exact Edge word timings back onto the transcript. Each timing is
-// (char offset in the reply text, ms when that word starts in the clip). A
-// word the engine didn't label is interpolated from the nearest labelled
-// neighbours, so a missing timing never leaves the transcript dark. Returns
-// null when no timings are available (older backend) so callers keep their
-// linear-progress fallback.
-function alignWordTimesMs(
-  text: string,
-  pairs: ReadonlyArray<{ offset: number; startMs: number }>,
-): number[] | null {
-  if (!pairs.length) return null;
-  const starts: number[] = [];
-  const re = /\S+/g;
-  for (;;) {
-    const m = re.exec(text);
-    if (!m) break;
-    starts.push(m.index);
-  }
-  const times: (number | null)[] = new Array(starts.length).fill(null);
-  // The service announces a token the moment it starts speaking it: attach
-  // each timing to the transcript word whose span contains that char offset.
-  for (const { offset, startMs } of pairs) {
-    let w = starts.length - 1;
-    while (w >= 0 && starts[w]! > offset) w -= 1;
-    if (w < 0) continue;
-    const end = w + 1 < starts.length ? starts[w + 1]! : text.length;
-    if (offset < end && (times[w] === null || startMs < times[w]!)) {
-      times[w] = startMs;
-    }
-  }
-  // Fill unlabelled words from the nearest labelled neighbours.
-  let prev = -1;
-  let prevMs = 0;
-  for (let i = 0; i < times.length; i++) {
-    if (times[i] === null) continue;
-    if (prev >= 0) {
-      for (let k = prev + 1; k < i; k++) {
-        const f = (k - prev) / (i - prev);
-        times[k] = Math.round(prevMs + f * (times[i]! - prevMs));
-      }
-    }
-    prev = i;
-    prevMs = times[i]!;
-  }
-  for (let i = prev + 1; i < times.length; i++) times[i] = prevMs;
-  return times.map((t) => t ?? 0);
 }
 
 type FlowState = "idle" | "listening" | "thinking" | "speaking";
@@ -377,6 +329,53 @@ function CommunicationTrainingPage() {
   const leftScrollRef = useRef<HTMLDivElement | null>(null);
   const rightScrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Floating camera window: starts parked top-right and can be dragged anywhere
+  // on screen with a mouse, pen or finger. Position lives in viewport coordinates
+  // and is clamped so the window can never be dragged off-screen.
+  const camRef = useRef<HTMLDivElement | null>(null);
+  const camDragRef = useRef<{ dx: number; dy: number; id: number } | null>(null);
+  const [camPos, setCamPos] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const place = () => {
+      const el = camRef.current;
+      if (!el) return;
+      setCamPos((prev) => {
+        const maxX = Math.max(0, window.innerWidth - el.offsetWidth);
+        const maxY = Math.max(0, window.innerHeight - el.offsetHeight);
+        const x = prev ? Math.min(Math.max(prev.x, 0), maxX) : maxX - 12;
+        const y = prev ? Math.min(Math.max(prev.y, 0), maxY) : 68;
+        return { x, y };
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, []);
+
+  const onCamPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const el = camRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    camDragRef.current = { dx: e.clientX - r.left, dy: e.clientY - r.top, id: e.pointerId };
+    setCamPos({ x: r.left, y: r.top });
+    el.setPointerCapture(e.pointerId);
+  };
+  const onCamPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = camDragRef.current;
+    const el = camRef.current;
+    if (!drag || drag.id !== e.pointerId || !el) return;
+    const maxX = Math.max(0, window.innerWidth - el.offsetWidth);
+    const maxY = Math.max(0, window.innerHeight - el.offsetHeight);
+    setCamPos({
+      x: Math.min(Math.max(e.clientX - drag.dx, 0), maxX),
+      y: Math.min(Math.max(e.clientY - drag.dy, 0), maxY),
+    });
+  };
+  const onCamPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (camDragRef.current?.id === e.pointerId) camDragRef.current = null;
+  };
+
   const capturedRef = useRef("");
   const interimRef = useRef("");
   const flowRef = useRef<FlowState>("idle");
@@ -450,14 +449,7 @@ function CommunicationTrainingPage() {
   // live charIndex (speech-boundary event or audio progress) maps to the word
   // ordinal the transcript highlights in real time.
   function prepareWords(text: string) {
-    const starts: number[] = [];
-    const re = /\S+/g;
-    for (;;) {
-      const match = re.exec(text);
-      if (!match) break;
-      starts.push(match.index);
-    }
-    wordStartsRef.current = starts;
+    wordStartsRef.current = wordStartOffsets(text);
   }
 
   function emitWordForChar(idx: number) {
@@ -659,11 +651,7 @@ function CommunicationTrainingPage() {
       .then(async (current) => {
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
-          return;
-        }
-        if (current.profile_complete === false) {
-          void navigate({ to: "/onboarding", replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         setUser(current);
@@ -1083,8 +1071,11 @@ function CommunicationTrainingPage() {
     void (async () => {
       let iceBreaker = WELCOME_MESSAGE;
       try {
-        const list = await communicationTrainingList();
-        const last = list
+        // Only the most recent finished session is needed to pick up the
+        // conversation, and that is always on the first page, so one bounded
+        // page is enough here.
+        const page = await communicationTrainingList();
+        const last = page.sessions
           .filter((s) => s.finalized_at && s.communication_score > 0)
           .sort(
             (a, b) =>
@@ -1868,9 +1859,9 @@ function CommunicationTrainingPage() {
       />
 
       <main className="relative flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 gap-4 px-4 pb-40 pt-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 px-3 pb-40 pt-3 sm:gap-4 sm:px-4 lg:flex lg:flex-row lg:gap-4 lg:px-4 lg:pt-4">
           {/* Left column: AI (Maya) messages */}
-          <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-sky-500/20 bg-card/50 shadow-lg shadow-sky-500/5 backdrop-blur">
+          <div className="row-start-1 flex min-h-0 flex-col overflow-hidden rounded-xl border border-sky-500/20 bg-card/50 shadow-lg shadow-sky-500/5 backdrop-blur lg:row-auto lg:flex-1">
             <div className="border-b border-sky-500/15 bg-gradient-to-r from-sky-500/10 to-transparent px-4 py-2.5">
               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sky-500">
                 <span className="size-1.5 rounded-full bg-sky-500" />
@@ -1886,7 +1877,7 @@ function CommunicationTrainingPage() {
                     return (
                       <article key={m.id} className="flex items-start gap-2.5">
                         <img
-                          src={panelistPhoto("maya")}
+                          src="/Panelists/Maya.png"
                           alt="Maya"
                           className="mt-1 size-8 shrink-0 rounded-full object-cover"
                         />
@@ -1905,7 +1896,7 @@ function CommunicationTrainingPage() {
                 {flow === "thinking" && (
                   <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
                     <img
-                      src={panelistPhoto("maya")}
+                      src="/Panelists/Maya.png"
                       alt="Maya"
                       className="size-8 shrink-0 rounded-full object-cover"
                     />
@@ -1916,7 +1907,7 @@ function CommunicationTrainingPage() {
                 {flow === "speaking" && (
                   <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
                     <img
-                      src={panelistPhoto("maya")}
+                      src="/Panelists/Maya.png"
                       alt="Maya"
                       className="size-8 shrink-0 rounded-full object-cover"
                     />
@@ -1927,10 +1918,22 @@ function CommunicationTrainingPage() {
             </div>
           </div>
 
-          {/* Center: Video + Mic */}
-          <div className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-4">
+          {/* Camera: a floating, draggable window that starts top-right and can
+              be moved anywhere on screen with a mouse, pen or finger. */}
+          <div
+            ref={camRef}
+            onPointerDown={onCamPointerDown}
+            onPointerMove={onCamPointerMove}
+            onPointerUp={onCamPointerUp}
+            onPointerCancel={onCamPointerUp}
+            style={camPos ? { left: camPos.x, top: camPos.y } : undefined}
+            aria-label="Draggable camera feed"
+            className={`fixed z-30 flex h-28 w-40 touch-none select-none flex-col items-center justify-center gap-4 cursor-grab active:cursor-grabbing sm:h-32 sm:w-48 lg:h-44 lg:w-64 ${
+              camPos ? "" : "right-3 top-[3.9rem]"
+            }`}
+          >
             {/* Rotating dashed "sound scope" rings around the camera feed */}
-            <div className="pointer-events-none absolute inset-[-12px] hidden md:block">
+            <div className="pointer-events-none absolute inset-[-12px] hidden lg:block">
               <div className="absolute inset-0 animate-[spin_16s_linear_infinite] rounded-[30px] border border-dashed border-sky-400/25" />
               <div className="absolute inset-4 animate-[spin_24s_linear_infinite_reverse] rounded-[26px] border border-dashed border-cyan-400/15" />
             </div>
@@ -1943,7 +1946,7 @@ function CommunicationTrainingPage() {
                   muted
                   className="h-full w-full -scale-x-100 object-cover"
                 />
-                <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 backdrop-blur-sm">
+                <div className="absolute left-3 top-3 z-10 hidden items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 backdrop-blur-sm lg:flex">
                   <span className="relative flex size-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-70" />
                     <span className="relative inline-flex size-2 rounded-full bg-sky-400" />
@@ -1987,7 +1990,7 @@ function CommunicationTrainingPage() {
           </div>
 
           {/* Right column: User messages */}
-          <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-indigo-500/20 bg-card/50 shadow-lg shadow-indigo-500/5 backdrop-blur">
+          <div className="row-start-2 flex min-h-0 flex-col overflow-hidden rounded-xl border border-indigo-500/20 bg-card/50 shadow-lg shadow-indigo-500/5 backdrop-blur lg:row-auto lg:flex-1">
             <div className="border-b border-indigo-500/15 bg-gradient-to-l from-indigo-500/10 to-transparent px-4 py-2.5">
               <p className="flex items-center justify-end gap-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-500">
                 You

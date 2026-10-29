@@ -500,11 +500,11 @@ function CandidateProfilePage() {
         const current = await me();
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         if (current.profile_complete === false) {
-          void navigate({ to: "/onboarding", replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         const [profilePayload] = await Promise.all([getProfile()]);

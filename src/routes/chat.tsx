@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import {
   Bot,
   BriefcaseBusiness,
+  Building2,
   Check,
   ChevronsLeft,
   ChevronsRight,
@@ -12,7 +13,9 @@ import {
   Library,
   Loader2,
   LogOut,
+  Map,
   MessageSquare,
+  MessagesSquare,
   Mic,
   Plus,
   Send,
@@ -28,6 +31,7 @@ import {
   chatSessionDetail,
   chatSessions,
   deleteChatSession,
+  getCandidateRoadmap,
   getNotifications,
   getProfile,
   me,
@@ -361,6 +365,7 @@ function ChatPage() {
   const [input, setInput] = useState("");
   const setDraft = (v: string) => setInput(v);
   const [sending, setSending] = useState(false);
+  const [roadmapChecking, setRoadmapChecking] = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState("");
@@ -501,17 +506,17 @@ function ChatPage() {
       .then(async (current) => {
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         if (current.profile_complete === false) {
-          void navigate({ to: "/onboarding", replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         const local = loadSessions();
         let stored = local;
         try {
-          const list = await chatSessions();
+          const { sessions: list } = await chatSessions();
           const serverIds = new Set(list.map((x) => x.id));
           const serverSessions: ChatSession[] = list
             .filter((srv) => srv.message_count > 0)
@@ -654,6 +659,27 @@ function ChatPage() {
     setError("");
     setAnimating(false);
     requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  async function openRoadmap() {
+    if (roadmapChecking || sending) return;
+    setRoadmapChecking(true);
+    const prompt =
+      "Help me develop a comprehensive preparation roadmap and plan for my placement goals.";
+    try {
+      const roadmap = await getCandidateRoadmap();
+      if (roadmap) {
+        void navigate({ to: "/roadmap-drill" });
+        return;
+      }
+      startNewChat();
+      void sendMessage(prompt);
+    } catch {
+      startNewChat();
+      void sendMessage(prompt);
+    } finally {
+      setRoadmapChecking(false);
+    }
   }
 
   function selectSession(id: string) {
@@ -1488,7 +1514,7 @@ function ChatPage() {
                 className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <GraduationCap className="size-4 shrink-0" />
-                Tutorials
+                Learning
               </button>
               <button
                 type="button"
@@ -1497,6 +1523,35 @@ function ChatPage() {
               >
                 <Dumbbell className="size-4 shrink-0" />
                 Self Training
+              </button>
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/companies" })}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Building2 className="size-4 shrink-0" />
+                Company/Drives
+              </button>
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/discussion-forum" })}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <MessagesSquare className="size-4 shrink-0" />
+                Discussion Forum
+              </button>
+              <button
+                type="button"
+                onClick={() => void openRoadmap()}
+                disabled={roadmapChecking}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-wait disabled:opacity-70"
+              >
+                {roadmapChecking ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                ) : (
+                  <Map className="size-4 shrink-0" />
+                )}
+                Roadmap
               </button>
             </nav>
           </div>

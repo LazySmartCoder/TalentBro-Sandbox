@@ -281,7 +281,7 @@ function StudentDetailPage() {
         const current = await me();
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         const board = await getReadinessLeaderboard();

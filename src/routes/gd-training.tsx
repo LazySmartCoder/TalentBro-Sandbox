@@ -70,11 +70,7 @@ function GdTrainingPage() {
       .then(async (current) => {
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
-          return;
-        }
-        if (current.profile_complete === false) {
-          void navigate({ to: "/onboarding", replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         setUser(current);

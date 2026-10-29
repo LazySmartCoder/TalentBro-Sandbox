@@ -1,10 +1,19 @@
 import { setCollegeName } from "@/lib/branding";
+import type { GdRollupRow, HistoryPage, PracticeRollupRow } from "@/lib/paged-history";
 import { sandboxApiFetch } from "./sandbox-mock";
 
 const API_BASE = ((import.meta.env["VITE_API_URL"] as string | undefined) ?? "").replace(
   /\/+$/,
   "",
 );
+
+function historyQuery({ limit, offset }: { limit?: number; offset?: number }): string {
+  const search = new URLSearchParams();
+  if (typeof limit === "number") search.set("limit", String(limit));
+  if (typeof offset === "number") search.set("offset", String(offset));
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}
 
 // Every account has exactly one Role: Student (candidate) or Institution Staff.
 // Note: candidates and students are the same in this project.
@@ -234,13 +243,16 @@ export type GdCompleteBody = {
   topic: string;
   participants: { name: string; gender: string; is_user: boolean }[];
   transcript: { name: string; content: string; from: string }[];
-  result: GdCompleteResult;
 };
 
 // Persist a finished GD round — even a near-empty one — so every topic a
-// student trains on is recorded and repeats are avoided on the next round.
-export async function gdComplete(body: GdCompleteBody): Promise<{ id: string }> {
-  const data = await apiFetch<{ id: string }>("/api/gd/complete/", {
+// student trains on is recorded and repeats are avoided on the next round. The
+// round is scored server-side from the transcript, and the saved round comes
+// back so the client renders the real criteria instead of inventing its own.
+export async function gdComplete(
+  body: GdCompleteBody,
+): Promise<{ id: string; session: GdTrainingRecord }> {
+  const data = await apiFetch<{ id: string; session: GdTrainingRecord }>("/api/gd/complete/", {
     method: "POST",
     body: JSON.stringify(body),
     timeoutMs: LONG_TIMEOUT_MS,
@@ -304,9 +316,11 @@ export type GdTrainingRecord = {
 
 // Every GD round a student completes is saved on the backend; list them
 // newest first for the history page.
-export async function gdList(): Promise<GdTrainingRecord[]> {
-  const data = await apiFetch<{ sessions: GdTrainingRecord[] }>("/api/gd/history/");
-  return data.sessions ?? [];
+export async function gdList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<GdTrainingRecord, GdRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<GdTrainingRecord, GdRollupRow>>(`/api/gd/history/${search}`);
 }
 
 // Full detail (roster, AI summary and transcript) for one saved GD round.
@@ -333,6 +347,13 @@ export type ChatSessionSummary = {
   created_at: string;
   updated_at: string;
   message_count: number;
+};
+
+export type ChatSessionPage = {
+  sessions: ChatSessionSummary[];
+  has_more: boolean;
+  offset: number;
+  limit: number;
 };
 
 export type ChatSession = ChatSessionSummary & {
@@ -487,11 +508,13 @@ export type CommunicationTrainingSession = {
   transcript?: { role: "user" | "assistant"; content: string; created_at: string }[];
 };
 
-export async function communicationTrainingList(): Promise<CommunicationTrainingSession[]> {
-  const payload = await apiFetch<{ sessions: CommunicationTrainingSession[] }>(
-    "/api/chat/communication/history/",
+export async function communicationTrainingList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<CommunicationTrainingSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<CommunicationTrainingSession, PracticeRollupRow>>(
+    `/api/chat/communication/history/${search}`,
   );
-  return payload.sessions ?? [];
 }
 
 export async function communicationTrainingDetail(
@@ -536,11 +559,13 @@ export type EnglishTrainingSession = {
   transcript?: { role: "user" | "assistant"; content: string; created_at: string }[];
 };
 
-export async function englishTrainingList(): Promise<EnglishTrainingSession[]> {
-  const payload = await apiFetch<{ sessions: EnglishTrainingSession[] }>(
-    "/api/speaking-skills/history/",
+export async function englishTrainingList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<EnglishTrainingSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<EnglishTrainingSession, PracticeRollupRow>>(
+    `/api/speaking-skills/history/${search}`,
   );
-  return payload.sessions ?? [];
 }
 
 export async function englishTrainingSessionDetail(
@@ -759,9 +784,13 @@ export function aplrSkipKeepalive(sessionId: string): void {
   }
 }
 
-export async function aplrList(): Promise<APLRTrainingSession[]> {
-  const data = await apiFetch<{ sessions: APLRTrainingSession[] }>("/api/aplr/history/");
-  return data.sessions ?? [];
+export async function aplrList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<APLRTrainingSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<APLRTrainingSession, PracticeRollupRow>>(
+    `/api/aplr/history/${search}`,
+  );
 }
 
 export async function aplrDetail(sessionId: string): Promise<APLRTrainingSession> {
@@ -873,9 +902,13 @@ export function technicalSkipKeepalive(sessionId: string): void {
   }
 }
 
-export async function technicalList(): Promise<TechnicalTrainingSession[]> {
-  const data = await apiFetch<{ sessions: TechnicalTrainingSession[] }>("/api/technical/history/");
-  return data.sessions ?? [];
+export async function technicalList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<TechnicalTrainingSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<TechnicalTrainingSession, PracticeRollupRow>>(
+    `/api/technical/history/${search}`,
+  );
 }
 
 export async function technicalDetail(sessionId: string): Promise<TechnicalTrainingSession> {
@@ -991,9 +1024,11 @@ export function dsaSkipKeepalive(sessionId: string): void {
   }
 }
 
-export async function dsaList(): Promise<DSATrainingSession[]> {
-  const data = await apiFetch<{ sessions: DSATrainingSession[] }>("/api/dsa/history/");
-  return data.sessions ?? [];
+export async function dsaList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<DSATrainingSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<DSATrainingSession, PracticeRollupRow>>(`/api/dsa/history/${search}`);
 }
 
 export async function dsaDetail(sessionId: string): Promise<DSATrainingSession> {
@@ -1110,9 +1145,13 @@ export function basicMathSkipKeepalive(sessionId: string): void {
   }
 }
 
-export async function basicMathList(): Promise<BasicMathTrainingSession[]> {
-  const data = await apiFetch<{ sessions: BasicMathTrainingSession[] }>("/api/basic-math/history/");
-  return data.sessions ?? [];
+export async function basicMathList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<BasicMathTrainingSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<BasicMathTrainingSession, PracticeRollupRow>>(
+    `/api/basic-math/history/${search}`,
+  );
 }
 
 export async function basicMathDetail(sessionId: string): Promise<BasicMathTrainingSession> {
@@ -1233,11 +1272,13 @@ export function situationalSkipKeepalive(sessionId: string): void {
   }
 }
 
-export async function situationalList(): Promise<SituationalTrainingSession[]> {
-  const data = await apiFetch<{ sessions: SituationalTrainingSession[] }>(
-    "/api/situational/history/",
+export async function situationalList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<SituationalTrainingSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<SituationalTrainingSession, PracticeRollupRow>>(
+    `/api/situational/history/${search}`,
   );
-  return data.sessions ?? [];
 }
 
 export async function situationalDetail(sessionId: string): Promise<SituationalTrainingSession> {
@@ -1371,9 +1412,15 @@ export async function ttsGenerateWithTimings(
   return { url, wordTimes };
 }
 
-export async function chatSessions(): Promise<ChatSessionSummary[]> {
-  const data = await apiFetch<{ sessions: ChatSessionSummary[] }>("/api/chat/sessions/");
-  return data.sessions;
+export async function chatSessions(
+  params: { limit?: number; offset?: number } = {},
+): Promise<ChatSessionPage> {
+  const { limit, offset } = params;
+  const search = new URLSearchParams();
+  if (typeof limit === "number") search.set("limit", String(limit));
+  if (typeof offset === "number") search.set("offset", String(offset));
+  const query = search.toString();
+  return apiFetch<ChatSessionPage>(`/api/chat/sessions/${query ? `?${query}` : ""}`);
 }
 
 export async function chatSessionDetail(id: string, before?: number | null): Promise<ChatSession> {
@@ -1625,7 +1672,7 @@ export async function clientOnboarding(body: Record<string, unknown>): Promise<A
   return data.user;
 }
 
-export type MockInterviewStatus = "active" | "completed";
+export type MockInterviewStatus = "active" | "completed" | "not_scored";
 export type MockInterviewDuration = "short" | "standard" | "long";
 export type PanelistId = "atlas" | "maya" | "albert" | "peter" | "daniel" | "ada" | "carl";
 
@@ -1668,13 +1715,81 @@ export type MockInterviewSwot = {
   threats: string;
 };
 
+export type MockInterviewPanelistRemark = {
+  panelist: string;
+  name: string;
+  remark: string;
+};
+
 export type MockInterviewAnalysis = {
   id: string;
   company_name: string;
   role: string;
   created_at: string;
+  overall_score: number | null;
+  scored_dimensions: number;
+  total_dimensions: number;
   metrics: MockInterviewAnalysisMetric[];
+  improvements: MockInterviewPanelistRemark[];
   swot: MockInterviewSwot;
+};
+
+export type MockInterviewStatsEntry = MockInterview & {
+  user_turns: number;
+  assistant_turns: number;
+  user_words: number;
+  target_exchanges: number;
+  analysis: {
+    overall_score: number;
+    scored_dimensions: number;
+    total_dimensions: number;
+    dimensions: Record<string, number>;
+  } | null;
+};
+
+export type MockInterviewScoredPoint = {
+  company_name: string;
+  created_at: string;
+  score: number;
+  dimensions: Record<string, number>;
+};
+
+export type MockInterviewStats = {
+  totals: {
+    interviews: number;
+    completed: number;
+    not_scored: number;
+    active: number;
+    scored: number;
+    violations: number;
+    user_turns: number;
+    assistant_turns: number;
+    user_words: number;
+    companies: number;
+    roles: number;
+    avg_depth: number | null;
+  };
+  tones: { positive: number; neutral: number; negative: number };
+  interviews: MockInterviewStatsEntry[];
+  has_more: boolean;
+  total: number;
+  offset: number;
+  limit: number;
+  scored: MockInterviewScoredPoint[];
+  by_company: {
+    name: string;
+    interviews: number;
+    avg_user_turns: number;
+    avg_score: number | null;
+    scored: number;
+  }[];
+  by_role: {
+    name: string;
+    interviews: number;
+    avg_user_turns: number;
+    avg_score: number | null;
+    scored: number;
+  }[];
 };
 
 export type MockInterviewStartResponse = {
@@ -1766,6 +1881,17 @@ export async function mockInterviewAnalysis(id: string): Promise<MockInterviewAn
   return data.analysis;
 }
 
+export async function mockInterviewStats(
+  params: { limit?: number; offset?: number } = {},
+): Promise<MockInterviewStats> {
+  const { limit, offset } = params;
+  const search = new URLSearchParams();
+  if (typeof limit === "number") search.set("limit", String(limit));
+  if (typeof offset === "number") search.set("offset", String(offset));
+  const query = search.toString();
+  return apiFetch<MockInterviewStats>(`/api/interview/stats/${query ? `?${query}` : ""}`);
+}
+
 export async function deleteMockInterview(id: string): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/interview/${id}/`, { method: "DELETE" });
 }
@@ -1818,7 +1944,7 @@ export async function recordViolation(id: string): Promise<MockInterview> {
   return data.interview;
 }
 
-export type NotificationSender = "Placement Cell" | "TalentBro Platform";
+export type NotificationSender = "Placement Cell" | "TalentBro Platform" | "Discussion Forum";
 
 export type NotificationItem = {
   id: string;
@@ -1833,11 +1959,36 @@ export type NotificationItem = {
   redirect_path: string;
 };
 
-export async function getNotifications(): Promise<{
+export type NotificationPage = {
   notifications: NotificationItem[];
   unread: number;
-}> {
-  return apiFetch<{ notifications: NotificationItem[]; unread: number }>("/api/notifications/");
+  total: number;
+  has_more: boolean;
+  offset: number;
+  limit: number;
+};
+
+export type NotificationFeedFilters = {
+  sender?: NotificationSender;
+  unreadOnly?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+export async function getNotificationPage(
+  filters: NotificationFeedFilters = {},
+): Promise<NotificationPage> {
+  const params = new URLSearchParams();
+  if (filters.sender) params.set("sender", filters.sender);
+  if (filters.unreadOnly) params.set("unread", "true");
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  if (filters.offset != null) params.set("offset", String(filters.offset));
+  const qs = params.toString();
+  return apiFetch<NotificationPage>(qs ? `/api/notifications/?${qs}` : "/api/notifications/");
+}
+
+export function getNotifications(): Promise<{ notifications: NotificationItem[]; unread: number }> {
+  return getNotificationPage();
 }
 
 export async function markNotificationsRead(notificationId?: string, all = false): Promise<void> {
@@ -1846,6 +1997,53 @@ export async function markNotificationsRead(notificationId?: string, all = false
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// A broadcast authored by institution staff. The backend fans it out to the
+// signed-in staff member's own feed; students receive it as a placement-cell
+// notification.
+export type BroadcastDraft = {
+  title: string;
+  body: string;
+  pinned?: boolean;
+  important?: boolean;
+};
+
+export async function createNotification(draft: BroadcastDraft): Promise<NotificationItem> {
+  const data = await apiFetch<{ notification: NotificationItem }>("/api/notifications/", {
+    method: "POST",
+    body: JSON.stringify(draft),
+  });
+  return data.notification;
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  await apiFetch(`/api/notifications/${encodeURIComponent(notificationId)}/`, { method: "DELETE" });
+}
+
+export type CourseWeaknessSegment = {
+  key: string;
+  label: string;
+  query: string;
+  blurb: string;
+  /** Weakest recent score found, 0-100. Lower means a more urgent gap. */
+  score: number;
+  /** How many individual scores were averaged into `score`. */
+  sample_size: number;
+  /** Which training areas the evidence came from. */
+  sources: string[];
+  /** Short, human-readable reasons, strongest first. */
+  evidence: string[];
+};
+
+export type CourseWeaknessSegmentsResponse = {
+  /** Weakest first. Empty when the candidate has no tracked training data yet. */
+  segments: CourseWeaknessSegment[];
+  count: number;
+};
+
+export async function courseSegments(): Promise<CourseWeaknessSegmentsResponse> {
+  return apiFetch<CourseWeaknessSegmentsResponse>("/api/courses/segments/");
 }
 
 export type DriveCompanyTier = "super_dream" | "dream" | "core" | "mass";
@@ -1990,11 +2188,13 @@ export type StudentRecord = {
   middle_name: string;
   last_name: string;
   full_name: string;
+  bio?: string;
   department: string | null;
   program: string | null;
   start_year: number | null;
   end_year: number | null;
   mobile_number: string;
+  avatar?: string;
   gender: string;
   cgpa: number | null;
   placement_status: PlacementStatus;
@@ -2101,4 +2301,88 @@ export type ReportsData = {
 
 export async function getReportsData(): Promise<ReportsData> {
   return apiFetch<ReportsData>("/api/reports/");
+}
+
+export type RoadmapSelfTrainingModule = {
+  required: boolean;
+  sessions_per_week?: number;
+  focus_areas?: string[];
+  notes?: string;
+};
+
+export type CandidateRoadmap = {
+  id: string;
+  source_session: string | null;
+  status: string;
+  timeline_target: string;
+  target_date: string | null;
+  company_target: string[];
+  goal_statement: string;
+  mocks_required: number;
+  daily_practice_session_duration: number;
+  self_training_required: Record<string, RoadmapSelfTrainingModule>;
+  roadmap: Record<string, unknown>;
+  summary: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function getCandidateRoadmap(): Promise<CandidateRoadmap | null> {
+  try {
+    const data = await apiFetch<{ roadmap: CandidateRoadmap }>("/api/roadmap/");
+    return data.roadmap ?? null;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+export type ForumPostAuthor = {
+  id: string;
+  full_name: string;
+  department: string;
+  program: string;
+  avatar: string;
+};
+
+export type ForumPost = {
+  id: string;
+  body: string;
+  created_at: string;
+  time: string;
+  author: ForumPostAuthor;
+  is_mine: boolean;
+};
+
+export type ForumPostsResponse = {
+  institution: { id: string; name: string } | null;
+  viewer_candidate_id: string | null;
+  posts: ForumPost[];
+  total: number;
+  has_more: boolean;
+  offset: number;
+  limit: number;
+};
+
+export async function forumPosts(
+  params: { mine?: boolean; limit?: number; offset?: number } = {},
+): Promise<ForumPostsResponse> {
+  const search = new URLSearchParams();
+  if (params.mine) search.set("mine", "1");
+  if (typeof params.limit === "number") search.set("limit", String(params.limit));
+  if (typeof params.offset === "number") search.set("offset", String(params.offset));
+  const query = search.toString();
+  return apiFetch<ForumPostsResponse>(`/api/forum/posts/${query ? `?${query}` : ""}`);
+}
+
+export async function createForumPost(body: string): Promise<ForumPost> {
+  const data = await apiFetch<{ post: ForumPost }>("/api/forum/posts/", {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+  return data.post;
+}
+
+export async function deleteForumPost(id: string): Promise<void> {
+  await apiFetch<{ detail: string }>(`/api/forum/posts/${id}/`, { method: "DELETE" });
 }

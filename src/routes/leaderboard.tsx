@@ -26,9 +26,11 @@ import {
   YAxis,
 } from "recharts";
 import { AppNavHeader, AppNavIconButton } from "@/components/tb/app-nav";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getReadinessLeaderboard, me, type LeaderboardResponse } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { GateError, GateLoading } from "@/components/load-state";
+import { chartAxisProps, chartColors, chartRamp, chartTooltipProps } from "@/components/dash/bits";
 
 const title = "Leaderboard | TalentBro";
 const description = "Where you stand against your college.";
@@ -63,6 +65,18 @@ function rankTone(rank: number): { icon: typeof Trophy; cls: string } {
   if (rank === 2) return { icon: Medal, cls: "bg-slate-300 text-slate-900" };
   if (rank === 3) return { icon: Medal, cls: "bg-orange-300 text-orange-950" };
   return { icon: Award, cls: "bg-muted text-muted-foreground" };
+}
+
+function initialsOf(name?: string) {
+  const source = (name || "?").trim();
+  return (
+    source
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0] ?? "")
+      .join("")
+      .toUpperCase() || "?"
+  );
 }
 
 function wrapLabel(text: string, maxChars: number, maxLines: number): string[] {
@@ -236,7 +250,7 @@ function LeaderboardPage() {
         const current = await me();
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         const board = await getReadinessLeaderboard();
@@ -257,11 +271,11 @@ function LeaderboardPage() {
 
   const distribution = useMemo(() => {
     const buckets = [
-      { key: "0–19", label: "0–19", min: 0, max: 19, count: 0, color: "oklch(0.82 0 0)" },
-      { key: "20–39", label: "20–39", min: 20, max: 39, count: 0, color: "oklch(0.72 0 0)" },
-      { key: "40–59", label: "40–59", min: 40, max: 59, count: 0, color: "oklch(0.55 0 0)" },
-      { key: "60–79", label: "60–79", min: 60, max: 79, count: 0, color: "oklch(0.4 0 0)" },
-      { key: "80–100", label: "80–100", min: 80, max: 100, count: 0, color: "oklch(0.2 0 0)" },
+      { key: "0–19", label: "0–19", min: 0, max: 19, count: 0, color: chartRamp[0] },
+      { key: "20–39", label: "20–39", min: 20, max: 39, count: 0, color: chartRamp[1] },
+      { key: "40–59", label: "40–59", min: 40, max: 59, count: 0, color: chartRamp[2] },
+      { key: "60–79", label: "60–79", min: 60, max: 79, count: 0, color: chartRamp[3] },
+      { key: "80–100", label: "80–100", min: 80, max: 100, count: 0, color: chartRamp[0] },
     ];
     for (const s of data?.students ?? []) {
       const score = s.performance_score;
@@ -394,16 +408,12 @@ function LeaderboardPage() {
               <div className="p-4">
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={distribution} margin={{ left: -14, right: 8, top: 8 }}>
-                    <CartesianGrid stroke="oklch(0.9 0 0)" vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} />
-                    <YAxis tickLine={false} axisLine={false} fontSize={11} allowDecimals={false} />
+                    <CartesianGrid stroke={chartColors.grid} vertical={false} />
+                    <XAxis dataKey="label" {...chartAxisProps} />
+                    <YAxis {...chartAxisProps} allowDecimals={false} />
                     <Tooltip
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid oklch(0.9 0 0)",
-                        background: "oklch(1 0 0)",
-                      }}
-                      cursor={{ stroke: "oklch(0 0 0 / 0.2)", strokeDasharray: 4 }}
+                      {...chartTooltipProps}
+                      cursor={{ stroke: chartColors.axis, strokeDasharray: 4 }}
                       formatter={(value: number | string | Array<number | string>) => [
                         `${value} student${Number(value) === 1 ? "" : "s"}`,
                         "Score band",
@@ -440,11 +450,7 @@ function LeaderboardPage() {
                         tick={{ fontSize: 9, fill: "currentColor", opacity: 0.4 }}
                       />
                       <Tooltip
-                        contentStyle={{
-                          borderRadius: 12,
-                          border: "1px solid oklch(0.9 0 0)",
-                          background: "oklch(1 0 0)",
-                        }}
+                        {...chartTooltipProps}
                         formatter={(value: number | string | Array<number | string>) => [
                           `${Number(value).toFixed(1)}/100`,
                           "College avg",
@@ -509,19 +515,38 @@ function LeaderboardPage() {
                     )}
                   >
                     <RankBadge rank={s.overall_rank} />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {s.full_name || "Student"}
-                        {s.is_self && (
-                          <span className="ml-2 rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                            YOU
-                          </span>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar className="size-9 shrink-0">
+                        {s.avatar ? (
+                          <AvatarImage src={s.avatar} alt={s.full_name || "Student"} />
+                        ) : null}
+                        <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
+                          {initialsOf(s.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {s.full_name || "Student"}
+                          {s.is_self && (
+                            <span className="ml-2 rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                              YOU
+                            </span>
+                          )}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {s.department || "No department"}
+                          {s.cgpa != null && ` · CGPA ${s.cgpa}`}
+                        </p>
+                        {/* Headline, so the board reads as people rather than rows. */}
+                        {s.bio && (
+                          <p
+                            className="truncate text-[11px] font-semibold text-muted-foreground/90"
+                            title={s.bio}
+                          >
+                            {s.bio}
+                          </p>
                         )}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {s.department || "No department"}
-                        {s.cgpa != null && ` · CGPA ${s.cgpa}`}
-                      </p>
+                      </div>
                     </div>
                     <div className="hidden text-xs text-muted-foreground sm:block">
                       {s.overall_rank != null

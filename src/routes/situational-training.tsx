@@ -21,8 +21,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePagedHistoryState, type PracticeRollupRow } from "@/lib/paged-history";
 import { AppNavHeader } from "@/components/tb/app-nav";
-import { panelistPhoto } from "@/lib/panelists";
 import { GateError, GateLoading, useQuoteSplash } from "@/components/load-state";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -127,7 +127,7 @@ type ResultBanner = {
   solution: string;
 } | null;
 
-function deriveStats(sessions: SituationalTrainingSession[]) {
+function deriveStats(sessions: PracticeRollupRow[]) {
   const solved = sessions.filter((s) => s.status === "solved");
   const gaveUp = sessions.filter((s) => s.status === "gave_up");
   const xp = sessions.reduce((acc, s) => acc + s.points_awarded, 0);
@@ -160,12 +160,12 @@ type CategoryInsight = {
   improvement: number | null;
 };
 
-function accOf(list: SituationalTrainingSession[]): number {
+function accOf(list: PracticeRollupRow[]): number {
   if (list.length === 0) return 0;
   return Math.round((list.filter((s) => s.status === "solved").length / list.length) * 100);
 }
 
-function deriveCategoryInsights(sessions: SituationalTrainingSession[]): CategoryInsight[] {
+function deriveCategoryInsights(sessions: PracticeRollupRow[]): CategoryInsight[] {
   const resolved = sessions.filter((s) => s.status !== "active");
   return CATEGORY_META.filter(
     (c) => c.slug !== "" && resolved.some((s) => s.category === c.slug),
@@ -219,7 +219,18 @@ function SituationalPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { splash, splashDone } = useQuoteSplash();
 
-  const [sessions, setSessions] = useState<SituationalTrainingSession[]>([]);
+  // The recent-rounds list is paged: one page of sessions at a time, with the
+  // next fetched as the reader scrolls. Stats and category insights come from
+  // `rollup`, which covers the whole record, so they do not shift as pages load.
+  const {
+    sessions,
+    rollup,
+    isLoadingMore,
+    refresh: refreshSessions,
+    listEnd,
+  } = usePagedHistoryState<SituationalTrainingSession, PracticeRollupRow>({
+    queryFn: situationalList,
+  });
   const [session, setSession] = useState<SituationalTrainingSession | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -238,10 +249,11 @@ function SituationalPage() {
   const activeSessionRef = useRef<string | null>(null);
   activeSessionRef.current = session?.status === "active" ? session.id : null;
 
-  const stats = deriveStats(sessions);
-  const insights = deriveCategoryInsights(sessions);
+  const stats = deriveStats(rollup);
+  const insights = deriveCategoryInsights(rollup);
   const overallImprovement = (() => {
-    const resolved = sessions
+    // Split oldest-to-newest across the whole record, not the loaded pages.
+    const resolved = rollup
       .filter((s) => s.status !== "active")
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (resolved.length < 4) return null;
@@ -276,11 +288,7 @@ function SituationalPage() {
       .then(async (current) => {
         if (cancelled) return;
         if (!current) {
-          void navigate({ to: "/candidate-auth", search: { mode: "login" }, replace: true });
-          return;
-        }
-        if (current.profile_complete === false) {
-          void navigate({ to: "/onboarding", replace: true });
+          void navigate({ to: "/", replace: true });
           return;
         }
         setUser(current);
@@ -302,11 +310,10 @@ function SituationalPage() {
   async function initialize() {
     let list: SituationalTrainingSession[] = [];
     try {
-      list = await situationalList();
+      list = await refreshSessions();
     } catch {
       list = [];
     }
-    setSessions(list);
     const active = list.find((s) => s.status === "active");
     if (active) {
       // A scenario left unanswered on a previous visit is skipped, never resumed.
@@ -316,7 +323,7 @@ function SituationalPage() {
         /* best-effort */
       }
       try {
-        setSessions(await situationalList());
+        await refreshSessions();
       } catch {
         /* best-effort refresh */
       }
@@ -356,7 +363,7 @@ function SituationalPage() {
       setInput("");
       setFlow("idle");
       try {
-        setSessions(await situationalList());
+        await refreshSessions();
       } catch {
         /* best-effort refresh */
       }
@@ -400,7 +407,7 @@ function SituationalPage() {
         });
         setCountdown(NEXT_DELAY_SECONDS);
         try {
-          setSessions(await situationalList());
+          await refreshSessions();
         } catch {
           /* best-effort refresh */
         }
@@ -701,7 +708,7 @@ function SituationalPage() {
                 m.role === "peter" ? (
                   <div key={m.id} className="flex gap-3">
                     <img
-                      src={panelistPhoto("peter")}
+                      src="/Panelists/Peter.png"
                       alt={COACH_NAME}
                       className="mt-0.5 size-8 shrink-0 rounded-full object-cover"
                     />
@@ -738,7 +745,7 @@ function SituationalPage() {
               {flow === "thinking" && (
                 <div className="flex gap-3">
                   <img
-                    src={panelistPhoto("peter")}
+                    src="/Panelists/Peter.png"
                     alt={COACH_NAME}
                     className="mt-0.5 size-8 shrink-0 rounded-full object-cover"
                   />
@@ -850,7 +857,7 @@ function SituationalPage() {
                   placeholder="Type what you'd do + your reasoning (e.g. I'd split the task, then hear both sides privately)"
                   rows={2}
                   disabled={flow !== "idle" || !session}
-                  className="min-h-[52px] flex-1 resize-none"
+                  className="h-[52px] min-h-0 flex-1 resize-none"
                 />
                 <Button
                   size="icon"
@@ -948,6 +955,14 @@ function SituationalPage() {
                     </div>
                   );
                 })}
+
+                {/* Sentinel: pull the next page of rounds once the reader scrolls
+                    to the end of the ones already loaded. */}
+                <div ref={listEnd} aria-hidden className="flex justify-center py-3">
+                  {isLoadingMore ? (
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  ) : null}
+                </div>
               </div>
             </div>
 

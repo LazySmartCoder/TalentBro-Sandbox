@@ -23,12 +23,15 @@ import {
 import type {
   AuthUser,
   CandidateProfilePayload,
+  CandidateRoadmap,
   ChatMessage,
   ChatResponse,
   ChatSession,
   CommunicationTrainingSession,
   DriveCompanyTier,
   EnglishTrainingSession,
+  ForumPost,
+  ForumPostsResponse,
   GdChatMessage,
   GdTrainingRecord,
   InstitutionOverview,
@@ -439,24 +442,65 @@ type StoredChatSession = ChatSession & {
 
 const CHAT_KEY = "sandbox.chats";
 
-function seededChats(): StoredChatSession[] {
+function daysAgo(days: number, hour = 10): string {
   const t = new Date();
-  t.setDate(t.getDate() - 1);
-  const yday = t.toISOString();
-  t.setHours(t.getHours() - 3);
+  t.setDate(t.getDate() - days);
+  t.setHours(hour, 0, 0, 0);
+  return t.toISOString();
+}
+
+function seededChats(): StoredChatSession[] {
   return [
     {
       id: "chat-demo-1",
       title: "Preparing for the Infosys drive",
-      created_at: yday,
-      updated_at: nowIso(),
+      created_at: daysAgo(1, 10),
+      updated_at: daysAgo(1, 11),
       message_count: 4,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "I have an Infosys Systems Engineer drive next week. How do I prepare?", created_at: yday },
-        { id: 2, role: "assistant", content: "Great to see you prepping early! Start with the aptitude basics — percentages, ratios and data interpretation are the most frequent. Then run a couple of mock interviews with us so you get feedback on how you explain your projects.", created_at: yday },
-        { id: 3, role: "user", content: "Which topics should I focus on for the online assessment?", created_at: yday },
-        { id: 4, role: "assistant", content: "Focus order: (1) ApTitude — time & work, percentages, syllogisms. (2) English — grammar and reading comprehension. (3) Technical — OOP, SQL basics and one solid Data Structures topic. Practise with the APLR module here and check the Infosys-specific pointers under Tutorials.", created_at: yday },
+        { id: 1, role: "user", content: "I have an Infosys Systems Engineer drive next week. How do I prepare?", created_at: daysAgo(1, 10) },
+        { id: 2, role: "assistant", content: "Great to see you prepping early! Start with the aptitude basics — percentages, ratios and data interpretation are the most frequent. Then run a couple of mock interviews with us so you get feedback on how you explain your projects.", created_at: daysAgo(1, 10) },
+        { id: 3, role: "user", content: "Which topics should I focus on for the online assessment?", created_at: daysAgo(1, 11) },
+        { id: 4, role: "assistant", content: "Focus order: (1) Aptitude — time & work, percentages, syllogisms. (2) English — grammar and reading comprehension. (3) Technical — OOP, SQL basics and one solid Data Structures topic. Practise with the APLR module here and check the Infosys-specific pointers under Tutorials.", created_at: daysAgo(1, 11) },
+      ],
+    },
+    {
+      id: "chat-demo-2",
+      title: "How to answer Tell me about yourself",
+      created_at: daysAgo(2, 15),
+      updated_at: daysAgo(2, 15),
+      message_count: 2,
+      older_available: false,
+      messages: [
+        { id: 1, role: "user", content: "How do I answer 'Tell me about yourself' without rambling?", created_at: daysAgo(2, 15) },
+        { id: 2, role: "assistant", content: "Use a 3-part structure: who you are today (course + strongest skill), one concrete proof (a project or internship result), and why this role. Keep it to 60–90 seconds and end with a hook that invites the next question.", created_at: daysAgo(2, 15) },
+      ],
+    },
+    {
+      id: "chat-demo-3",
+      title: "DSA practice plan for two weeks",
+      created_at: daysAgo(3, 9),
+      updated_at: daysAgo(3, 9),
+      message_count: 2,
+      older_available: false,
+      messages: [
+        { id: 1, role: "user", content: "Give me a two-week DSA revision plan before placement season.", created_at: daysAgo(3, 9) },
+        { id: 2, role: "assistant", content: "Week 1: arrays, strings, hashing and two-pointer patterns — 3 problems a day. Week 2: trees, graphs, recursion and dynamic programming — 2 problems plus one timed mock. Re-solve anything you miss within 48 hours and track patterns, not just counts.", created_at: daysAgo(3, 9) },
+      ],
+    },
+    {
+      id: "chat-demo-4",
+      title: "Resume summary review",
+      created_at: daysAgo(4, 17),
+      updated_at: daysAgo(4, 18),
+      message_count: 4,
+      older_available: false,
+      messages: [
+        { id: 1, role: "user", content: "Can you review a resume summary for a fresher SDE role?", created_at: daysAgo(4, 17) },
+        { id: 2, role: "assistant", content: "Share the summary and I'll tighten it. A strong fresher summary names your degree, your strongest stack, and one measurable outcome from a project or internship — no generic phrases like 'hardworking individual'.", created_at: daysAgo(4, 17) },
+        { id: 3, role: "user", content: "I built a placement readiness dashboard for my college.", created_at: daysAgo(4, 18) },
+        { id: 4, role: "assistant", content: "Turn that into impact: “Built a placement readiness dashboard used by 500+ students to track Aptitude, DSA and mock-interview scores, cutting reporting time for the placement cell by 40%.” That gives scale, users and a result in one line.", created_at: daysAgo(4, 18) },
       ],
     },
   ];
@@ -579,12 +623,24 @@ function seededInterviews(): MockInterviewDetail[] {
         company_name: "Persistent Systems",
         role: "SDE-1",
         created_at: `${BATCH_YEAR}-08-20T10:45:00Z`,
+        overall_score: 77,
+        scored_dimensions: 10,
+        total_dimensions: 34,
         metrics: [
-          { dimension: "Communication", description: "How clearly you explain ideas", percentage: 82 },
-          { dimension: "Technical Depth", description: "Accuracy of technical reasoning", percentage: 76 },
-          { dimension: "Problem Solving", description: "Structure of your approach", percentage: 79 },
-          { dimension: "Behavioural", description: "Confidence in situational answers", percentage: 71 },
-          { dimension: "Company Fit", description: "Alignment with role and values", percentage: 68 },
+          { dimension: "Communication Skills", description: "How clearly you explain ideas", percentage: 82 },
+          { dimension: "Verbal Fluency", description: "Smoothness and pace of delivery", percentage: 78 },
+          { dimension: "Clarity of Thought", description: "Order and focus of your reasoning", percentage: 80 },
+          { dimension: "Analytical & Problem-Solving Ability", description: "Structure of your approach", percentage: 76 },
+          { dimension: "Knowledge & Awareness", description: "Accuracy of technical reasoning", percentage: 72 },
+          { dimension: "Confidence", description: "Confidence in situational answers", percentage: 74 },
+          { dimension: "Leadership & Initiative", description: "Ownership shown in examples", percentage: 68 },
+          { dimension: "Emotional Maturity", description: "Composure under pressure", percentage: 77 },
+          { dimension: "Teamwork & Interpersonal Skills", description: "How you work with others", percentage: 81 },
+          { dimension: "Motivation & Fit", description: "Alignment with role and values", percentage: 79 },
+        ],
+        improvements: [
+          { panelist: "maya", name: "Maya", remark: "Tighten your STAR closes — land the result before adding context." },
+          { panelist: "albert", name: "Albert", remark: "State the trade-off you rejected, not just the one you picked." },
         ],
         swot: {
           strengths: "Clear, structured answers with concrete project evidence.",
@@ -606,20 +662,46 @@ function saveInterviews(list: MockInterviewDetail[]): void {
   writeJson(MOCK_KEY, list);
 }
 
+const INTERVIEW_REMARK: Record<string, string> = {
+  maya: "Tighten your STAR closes — land the result before adding context.",
+  albert: "State the trade-off you rejected, not just the one you picked.",
+  peter: "Show how you would bring the team along, not only what you decided.",
+  daniel: "Quantify the outcome; a number makes the example land.",
+  ada: "Walk through the edge cases before declaring the answer complete.",
+  carl: "Name the emotion in the story and how it changed your next step.",
+};
+
 function computeInterviewAnalysis(i: MockInterviewDetail): MockInterviewAnalysis {
   const metrics = [
-    { dimension: "Communication", description: "How clearly you explain ideas", percentage: 74 + (i.message_count % 15) },
-    { dimension: "Technical Depth", description: "Accuracy of technical reasoning", percentage: 66 + ((i.message_count * 3) % 22) },
-    { dimension: "Problem Solving", description: "Structure of your approach", percentage: 70 + ((i.message_count * 5) % 20) },
-    { dimension: "Behavioural", description: "Confidence in situational answers", percentage: 63 + ((i.message_count * 7) % 24) },
-    { dimension: "Company Fit", description: "Alignment with role and values", percentage: 60 + ((i.message_count * 11) % 28) },
+    { dimension: "Communication Skills", description: "How clearly you explain ideas", percentage: 74 + (i.message_count % 15) },
+    { dimension: "Verbal Fluency", description: "Smoothness and pace of delivery", percentage: 70 + ((i.message_count * 2) % 18) },
+    { dimension: "Clarity of Thought", description: "Order and focus of your reasoning", percentage: 72 + ((i.message_count * 5) % 20) },
+    { dimension: "Analytical & Problem-Solving Ability", description: "Structure of your approach", percentage: 66 + ((i.message_count * 3) % 22) },
+    { dimension: "Knowledge & Awareness", description: "Accuracy of technical reasoning", percentage: 68 + ((i.message_count * 7) % 20) },
+    { dimension: "Confidence", description: "Confidence in situational answers", percentage: 63 + ((i.message_count * 7) % 24) },
+    { dimension: "Leadership & Initiative", description: "Ownership shown in examples", percentage: 64 + ((i.message_count * 11) % 22) },
+    { dimension: "Emotional Maturity", description: "Composure under pressure", percentage: 70 + ((i.message_count * 13) % 18) },
+    { dimension: "Teamwork & Interpersonal Skills", description: "How you work with others", percentage: 72 + ((i.message_count * 17) % 16) },
+    { dimension: "Motivation & Fit", description: "Alignment with role and values", percentage: 60 + ((i.message_count * 11) % 28) },
   ];
+  const overall = Math.round(
+    metrics.reduce((sum, metric) => sum + metric.percentage, 0) / metrics.length,
+  );
+  const reviewers = i.panelists.filter((id) => id !== "atlas");
   return {
     id: uid("an"),
     company_name: i.company_name,
     role: i.role,
     created_at: nowIso(),
+    overall_score: overall,
+    scored_dimensions: metrics.length,
+    total_dimensions: 34,
     metrics,
+    improvements: reviewers.map((id) => ({
+      panelist: id,
+      name: PANELISTS.find((p) => p.id === id)?.name ?? id,
+      remark: INTERVIEW_REMARK[id] ?? "Keep each answer anchored to a concrete outcome.",
+    })),
     swot: {
       strengths: "Confident delivery with real project examples.",
       weaknesses: "A few answers drifted off-question; practise tighter closes.",
@@ -922,10 +1004,17 @@ function englishMetrics(): EnglishTrainingSession {
 // ── Notifications ───────────────────────────────────────────────────────
 
 const NOTIF_READ_KEY = "sandbox.notifRead";
+const NOTIF_CREATED_KEY = "sandbox.notifCreated";
+const NOTIF_DELETED_KEY = "sandbox.notifDeleted";
 
 function allNotifications(): { items: NotificationItem[]; unread: number } {
   const readIds = new Set(readJson<string[]>(NOTIF_READ_KEY, []));
+  const deletedIds = new Set(readJson<string[]>(NOTIF_DELETED_KEY, []));
   const items: NotificationItem[] = [
+    ...readJson<NotificationItem[]>(NOTIF_CREATED_KEY, []).map((n) => ({
+      ...n,
+      read: readIds.has(n.id) ? true : n.read,
+    })),
     ...seedNotifications.map((n) => ({
       id: n.id,
       sender: n.category === "System" ? ("TalentBro Platform" as const) : ("Placement Cell" as const),
@@ -950,11 +1039,404 @@ function allNotifications(): { items: NotificationItem[]; unread: number } {
       created_at: `${BATCH_YEAR}-08-01T10:00:00Z`,
       redirect_path: "/dashboard",
     })),
-  ];
+  ].filter((i) => !deletedIds.has(i.id));
   return { items, unread: items.filter((i) => !i.read).length };
 }
 
+// ── Discussion forum ────────────────────────────────────────────────────
+
+const FORUM_KEY = "sandbox.forum";
+
+const AARAV_AUTHOR = {
+  id: String(STUDENT_USER.id),
+  full_name: STUDENT_USER.name,
+  department: "B.Tech",
+  program: "Computer Science",
+  avatar: "",
+};
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "Just now";
+  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (secs < 60) return "Just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  return `${days} days ago`;
+}
+
+function seededForumPosts(): ForumPost[] {
+  return [
+    {
+      id: "forum-demo-1",
+      body: "Has anyone here attempted the Infosys online assessment? The aptitude section felt much longer than the mock tests — would love tips on pacing.",
+      created_at: daysAgo(0, 9),
+      author: {
+        id: "stu-ananya",
+        full_name: "Ananya Mehta",
+        department: "B.Tech",
+        program: "Information Technology",
+        avatar: "",
+      },
+      is_mine: false,
+      time: "",
+    },
+    {
+      id: "forum-demo-2",
+      body: "Sharing my interview experience for the Persistent Systems drive: two technical rounds, mostly on projects plus OOP and SQL. Revise your resume projects in depth!",
+      created_at: daysAgo(1, 16),
+      author: {
+        id: "stu-rohan",
+        full_name: "Rohan Kulkarni",
+        department: "B.Tech",
+        program: "Computer Science",
+        avatar: "",
+      },
+      is_mine: false,
+      time: "",
+    },
+    {
+      id: "forum-demo-3",
+      body: "Looking for a study partner for DSA practice this week. Planning two hours every evening, focused on graphs and dynamic programming.",
+      created_at: daysAgo(2, 11),
+      author: {
+        id: "stu-ishita",
+        full_name: "Ishita Rao",
+        department: "B.Tech",
+        program: "Electronics & Telecommunication",
+        avatar: "",
+      },
+      is_mine: false,
+      time: "",
+    },
+    {
+      id: "forum-demo-4",
+      body: "Finished my first mock interview on TalentBro and the analysis was genuinely useful. Recording my answers really exposed how much I ramble — definitely doing this weekly now.",
+      created_at: daysAgo(3, 18),
+      author: AARAV_AUTHOR,
+      is_mine: true,
+      time: "",
+    },
+  ];
+}
+
+function allForumPosts(): ForumPost[] {
+  if (typeof localStorage !== "undefined" && localStorage.getItem(FORUM_KEY) === null) {
+    const seed = seededForumPosts();
+    saveForumPosts(seed);
+    return seed;
+  }
+  return readJson<ForumPost[]>(FORUM_KEY, []);
+}
+
+function saveForumPosts(posts: ForumPost[]): void {
+  writeJson(FORUM_KEY, posts);
+}
+
+function withForumTime(post: ForumPost): ForumPost {
+  return { ...post, time: relativeTime(post.created_at) };
+}
+
+function handleForumList(path: string): ForumPostsResponse {
+  const params = parseQuery(path);
+  const mine = params["mine"] === "1" || params["mine"] === "true";
+  const limit = Math.max(1, Math.min(50, Number(params["limit"]) || 10));
+  const offset = Math.max(0, Number(params["offset"]) || 0);
+  const all = allForumPosts();
+  const filtered = mine ? all.filter((p) => p.is_mine) : all;
+  const page = filtered.slice(offset, offset + limit);
+  return {
+    institution: { id: "svit", name: INSTITUTION_NAME },
+    viewer_candidate_id: String(STUDENT_USER.id),
+    posts: page.map(withForumTime),
+    total: filtered.length,
+    has_more: offset + page.length < filtered.length,
+    offset,
+    limit,
+  };
+}
+
+// ── Roadmap ─────────────────────────────────────────────────────────────
+
+const ROADMAP: CandidateRoadmap = {
+  id: "roadmap-demo-1",
+  source_session: "chat-demo-1",
+  status: "active",
+  timeline_target: "Placement ready by March 2026",
+  target_date: `${BATCH_YEAR}-03-31T00:00:00Z`,
+  company_target: ["Infosys", "TCS", "Persistent Systems"],
+  goal_statement:
+    "Crack a core software-engineering role by the end of the 2026 campus season with strong aptitude, DSA and interview communication.",
+  mocks_required: 8,
+  daily_practice_session_duration: 45,
+  self_training_required: {
+    communication: {
+      required: true,
+      sessions_per_week: 2,
+      focus_areas: ["STAR answers", "Filler words", "Pace"],
+    },
+    english: {
+      required: false,
+      sessions_per_week: 1,
+      focus_areas: ["Grammar", "Professional tone"],
+    },
+    aplr: {
+      required: true,
+      sessions_per_week: 3,
+      focus_areas: ["Percentages", "Time & work", "Data interpretation"],
+    },
+    basic_math: {
+      required: false,
+      sessions_per_week: 1,
+      focus_areas: ["Ratios", "Averages"],
+    },
+    situational: {
+      required: true,
+      sessions_per_week: 1,
+      focus_areas: ["Team conflict", "Prioritisation"],
+    },
+    technical: {
+      required: true,
+      sessions_per_week: 2,
+      focus_areas: ["OOP", "SQL", "Projects"],
+    },
+    dsa: {
+      required: true,
+      sessions_per_week: 3,
+      focus_areas: ["Arrays", "Graphs", "Dynamic programming"],
+    },
+    mock_interview: {
+      required: true,
+      sessions_per_week: 1,
+      focus_areas: ["Full-length mocks", "Interview analysis"],
+    },
+  },
+  roadmap: {
+    phases: [
+      {
+        period: "Weeks 1-2",
+        focus: "Rebuild the fundamentals",
+        modules: ["APLR", "Basic Math", "English"],
+        goals: [
+          "Complete 3 aptitude sessions focused on percentages and time & work.",
+          "Clear two full English writing drills and review the feedback.",
+          "Lock a daily 45-minute slot for practice.",
+        ],
+      },
+      {
+        period: "Weeks 3-5",
+        focus: "Technical depth and coding rhythm",
+        modules: ["Technical", "DSA", "Mock Interview"],
+        goals: [
+          "Solve two graph problems and one dynamic-programming problem each day.",
+          "Revise OOP and SQL basics, then take a technical drill.",
+          "Run the first full-length mock interview and read the analysis.",
+        ],
+      },
+      {
+        period: "Weeks 6-8",
+        focus: "Company-specific preparation",
+        modules: ["Mock Interview", "Communication", "Situational"],
+        goals: [
+          "Prepare company-specific talking points for Infosys, TCS and Persistent.",
+          "Practise STAR answers for teamwork and conflict questions.",
+          "Target a readiness score above 80 before the drives begin.",
+        ],
+      },
+    ],
+    weekly_schedule: {
+      monday: ["DSA: graphs", "Aptitude: percentages"],
+      tuesday: ["Technical: OOP", "English writing drill"],
+      wednesday: ["DSA: dynamic programming", "Situational practice"],
+      thursday: ["Aptitude: time & work", "Mock interview"],
+      friday: ["Technical: SQL", "Communication drill"],
+      saturday: ["Full-length mock", "Review interview analysis"],
+      sunday: ["Rest and light revision", "Plan the next week"],
+    },
+  },
+  summary:
+    "A balanced 8-week route that rebuilds aptitude, sharpens DSA and technical depth, then converts it into company-specific interview performance.",
+  created_at: daysAgo(5, 10),
+  updated_at: daysAgo(1, 18),
+};
+
 // ── Dispatcher ──────────────────────────────────────────────────────────
+
+const HISTORY_PAGE_SIZE = 50;
+
+function pageParams(path: string) {
+  const params = parseQuery(path);
+  const limit = Math.max(1, Math.min(100, Number(params["limit"]) || HISTORY_PAGE_SIZE));
+  const offset = Math.max(0, Number(params["offset"]) || 0);
+  return { limit, offset };
+}
+
+function newestFirst<T extends { created_at: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+function pagedRows<T extends { created_at: string }>(rows: T[], path: string) {
+  const sorted = newestFirst(rows);
+  const { limit, offset } = pageParams(path);
+  const sessions = sorted.slice(offset, offset + limit);
+  return {
+    sessions,
+    has_more: offset + sessions.length < sorted.length,
+    total: sorted.length,
+    offset,
+    limit,
+  };
+}
+
+function moduleHistory(key: ModuleKey, path: string) {
+  const all = questionSessions(key);
+  const page = pagedRows(all, path);
+  return {
+    ...page,
+    rollup: all.map((s) => ({
+      status: s.status,
+      points_awarded: s.points_awarded,
+      star_rating: s.star_rating,
+      category: s.category,
+      created_at: s.created_at,
+    })),
+  };
+}
+
+function historySummary(
+  rows: Record<string, unknown>[],
+  scoreKey: string,
+  metricKeys: string[],
+  countMistakes = false,
+) {
+  const scored = rows
+    .filter((r) => r["finalized_at"] && Number(r[scoreKey]) > 0)
+    .sort((a, b) => String(b["created_at"]).localeCompare(String(a["created_at"])));
+  const scores = scored.map((r) => Number(r[scoreKey]) || 0);
+  const total = scores.length;
+  const overall = total ? Math.round(scores.reduce((sum, v) => sum + v, 0) / total) : 0;
+  const averages: Record<string, number> = {};
+  for (const key of metricKeys) {
+    const sum = scored.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+    averages[key] = total ? Math.round(sum / total) : 0;
+  }
+  return {
+    analyzed_count: total,
+    overall,
+    best: total ? Math.max(...scores) : 0,
+    latest: total ? (scores[0] ?? 0) : 0,
+    first: total ? (scores[total - 1] ?? 0) : 0,
+    last_practiced_at: total ? (scored[0]?.["finalized_at"] as string | null) : null,
+    averages,
+    ...(countMistakes
+      ? { total_mistakes: scored.reduce((acc, r) => acc + (Number(r["mistake_count"]) || 0), 0) }
+      : {}),
+  };
+}
+
+function meanPlus(values: number[]): number | null {
+  return values.length ? Math.round(values.reduce((s, v) => s + v, 0) / values.length) : null;
+}
+
+function interviewStats(path: string) {
+  const interviews = newestFirst(mockInterviews());
+  const { limit, offset } = pageParams(path);
+  const entries = interviews.map((i) => {
+    const userTurns = i.messages.filter((m) => m.role === "user").length;
+    const assistantTurns = i.messages.filter((m) => m.role === "assistant").length;
+    const userWords = i.messages
+      .filter((m) => m.role === "user")
+      .reduce((sum, m) => sum + m.content.split(/\s+/).filter(Boolean).length, 0);
+    const analysis = i.analysis;
+    return {
+      ...i,
+      user_turns: userTurns,
+      assistant_turns: assistantTurns,
+      user_words: userWords,
+      target_exchanges: i.duration === "short" ? 3 : i.duration === "long" ? 12 : 6,
+      analysis:
+        analysis && analysis.overall_score != null
+          ? {
+              overall_score: analysis.overall_score,
+              scored_dimensions: analysis.scored_dimensions,
+              total_dimensions: analysis.total_dimensions,
+              dimensions: Object.fromEntries(
+                analysis.metrics.map((m) => [m.dimension, m.percentage]),
+              ),
+            }
+          : null,
+    };
+  });
+  const scoredEntries = entries.filter((e) => e.analysis !== null);
+  const avgScore = (rows: typeof entries) =>
+    meanPlus(
+      rows
+        .map((r) => r.analysis?.overall_score ?? 0)
+        .filter((value) => value > 0),
+    );
+  const groupBy = (key: "company_name" | "role") => {
+    const map = new Map<string, typeof entries>();
+    for (const entry of entries) {
+      const name = entry[key] || "General";
+      map.set(name, [...(map.get(name) ?? []), entry]);
+    }
+    return [...map.entries()].map(([name, rows]) => ({
+      name,
+      interviews: rows.length,
+      avg_user_turns: Math.round(rows.reduce((s, r) => s + r.user_turns, 0) / rows.length),
+      avg_score: avgScore(rows),
+      scored: rows.filter((r) => r.analysis !== null).length,
+    }));
+  };
+  const tones = { positive: 0, neutral: 0, negative: 0 };
+  for (const i of interviews) {
+    for (const m of i.messages) {
+      if (m.role !== "assistant") continue;
+      if (m.tone === "warm") tones.positive += 1;
+      else if (m.tone === "neutral") tones.neutral += 1;
+      else tones.negative += 1;
+    }
+  }
+  const page = entries.slice(offset, offset + limit);
+  return {
+    totals: {
+      interviews: entries.length,
+      completed: entries.filter((e) => e.status === "completed").length,
+      not_scored: entries.filter((e) => e.status === "not_scored").length,
+      active: entries.filter((e) => e.status === "active").length,
+      scored: scoredEntries.length,
+      violations: entries.reduce((s, e) => s + (e.suspection ?? 0), 0),
+      user_turns: entries.reduce((s, e) => s + e.user_turns, 0),
+      assistant_turns: entries.reduce((s, e) => s + e.assistant_turns, 0),
+      user_words: entries.reduce((s, e) => s + e.user_words, 0),
+      companies: new Set(entries.map((e) => e.company_name)).size,
+      roles: new Set(entries.map((e) => e.role)).size,
+      avg_depth: meanPlus(
+        entries.filter((e) => e.user_turns > 0).map((e) => e.user_words / e.user_turns),
+      ),
+    },
+    tones,
+    interviews: page,
+    has_more: offset + page.length < entries.length,
+    total: entries.length,
+    offset,
+    limit,
+    scored: [...scoredEntries]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((e) => ({
+        company_name: e.company_name,
+        created_at: e.created_at,
+        score: e.analysis?.overall_score ?? 0,
+        dimensions: e.analysis?.dimensions ?? {},
+      })),
+    by_company: groupBy("company_name"),
+    by_role: groupBy("role"),
+  };
+}
 
 export async function sandboxApiFetch<T = unknown>(
   path: string,
@@ -1013,10 +1495,52 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/reports/" && method === "GET") return reportsData() as T;
 
   // Notifications
-  if (p === "/notifications/" && method === "GET") return allNotifications() as T;
+  if ((p === "/notifications/" || p.startsWith("/notifications/?")) && method === "GET") {
+    const query = parseQuery(p);
+    const sender = query["sender"];
+    const unreadOnly = query["unread"] === "true";
+    const limit = Number(query["limit"] ?? 50);
+    const offset = Number(query["offset"] ?? 0);
+    const { items, unread } = allNotifications();
+    const matching = items.filter(
+      (n) => (!sender || n.sender === sender) && (!unreadOnly || !n.read),
+    );
+    const page = matching.slice(offset, offset + limit);
+    return delay({
+      notifications: page,
+      unread,
+      total: matching.length,
+      has_more: offset + page.length < matching.length,
+      offset,
+      limit,
+    }) as T;
+  }
+  if (p === "/notifications/" && method === "POST") {
+    const created = readJson<NotificationItem[]>(NOTIF_CREATED_KEY, []);
+    const notification: NotificationItem = {
+      id: uid("notif"),
+      sender: "Placement Cell",
+      title: String(body["title"] ?? "").trim() || "Announcement",
+      body: String(body["body"] ?? "").trim(),
+      pinned: body["pinned"] === true,
+      important: body["important"] === true,
+      read: false,
+      time: "Just now",
+      created_at: nowIso(),
+      redirect_path: "/notifications",
+    };
+    writeJson(NOTIF_CREATED_KEY, [notification, ...created]);
+    return delay({ notification }) as T;
+  }
+  if (/^\/notifications\/([^/]+)\/$/.test(p) && method === "DELETE") {
+    const id = decodeURIComponent(p.match(/^\/notifications\/([^/]+)\/$/)?.[1] ?? "");
+    const deleted = readJson<string[]>(NOTIF_DELETED_KEY, []);
+    if (id && !deleted.includes(id)) writeJson(NOTIF_DELETED_KEY, [id, ...deleted]);
+    return delay({ ok: true }) as T;
+  }
   if (p === "/notifications/mark-read/" && method === "POST") {
-    const all = body.all === true;
-    const id = typeof body.notification_id === "string" ? body.notification_id : null;
+    const all = body["all"] === true;
+    const id = typeof body["notification_id"] === "string" ? body["notification_id"] : null;
     const { items } = allNotifications();
     const current = readJson<string[]>(NOTIF_READ_KEY, []);
     const next = new Set(current);
@@ -1026,11 +1550,95 @@ export async function sandboxApiFetch<T = unknown>(
     return { ok: true } as T;
   }
 
+  // Course weakness segments for the tutorials feed
+  if (p === "/courses/segments/" && method === "GET") {
+    const segments = [
+      {
+        key: "dsa",
+        label: "Data Structures & Algorithms",
+        query: "data structures algorithms placement",
+        blurb: "Pattern-based coding rounds reward clean traversal and complexity habits.",
+        score: 58,
+        sample_size: 4,
+        sources: ["DSA Training"],
+        evidence: ["Arrays and strings are steady", "Trees and graphs need work"],
+      },
+      {
+        key: "technical",
+        label: "Technical Fundamentals",
+        query: "core computer science interview questions",
+        blurb: "OS, DBMS and networking questions still decide most technical rounds.",
+        score: 62,
+        sample_size: 3,
+        sources: ["Technical Training"],
+        evidence: ["DBMS answers are thin", "OS scheduling needs revision"],
+      },
+      {
+        key: "communication",
+        label: "Spoken Communication",
+        query: "english communication practice interview",
+        blurb: "Clear, structured answers carry more weight than perfect vocabulary.",
+        score: 66,
+        sample_size: 5,
+        sources: ["Communication Training", "English Training"],
+        evidence: ["Grammar is improving", "Fillers still appear under pressure"],
+      },
+      {
+        key: "gd",
+        label: "Group Discussion",
+        query: "group discussion practice tips",
+        blurb: "Entering early and building on others moves a GD score fastest.",
+        score: 69,
+        sample_size: 2,
+        sources: ["GD Training"],
+        evidence: ["Good points when the floor opens", "Entered late in the last round"],
+      },
+      {
+        key: "aptitude",
+        label: "Aptitude & Reasoning",
+        query: "aptitude reasoning placement practice",
+        blurb: "Speed on percentages, ratios and series is the common filter.",
+        score: 71,
+        sample_size: 6,
+        sources: ["APLR Training", "Basic Math Training"],
+        evidence: ["Accuracy is solid", "Time per question is high"],
+      },
+    ];
+    return delay({ segments, count: segments.length }) as T;
+  }
+
+  // Roadmap
+  if (p === "/roadmap/" && method === "GET") return delay({ roadmap: ROADMAP }) as T;
+
+  // Discussion forum
+  if (p.startsWith("/forum/posts/") && method === "GET")
+    return delay(handleForumList(p)) as T;
+  if (p === "/forum/posts/" && method === "POST") {
+    const text = typeof body["body"] === "string" ? body["body"].trim() : "";
+    if (!text)
+      throw Object.assign(new Error("Write something before posting."), { status: 400 });
+    const post: ForumPost = {
+      id: uid("forum"),
+      body: text,
+      created_at: nowIso(),
+      author: AARAV_AUTHOR,
+      is_mine: true,
+      time: "Just now",
+    };
+    saveForumPosts([post, ...allForumPosts()]);
+    return delay({ post }) as T;
+  }
+  if (/^\/forum\/posts\/([^/]+)\/$/.test(p) && method === "DELETE") {
+    const id = p.match(/^\/forum\/posts\/([^/]+)\/$/)?.[1] ?? "";
+    saveForumPosts(allForumPosts().filter((x) => x.id !== id));
+    return delay({ detail: "Post deleted" }) as T;
+  }
+
   // Chat
   if (p === "/chat/" && method === "POST")
     return delay(handleChatPost(body)) as T;
-  if (p === "/chat/sessions/" && method === "GET")
-    return delay({ sessions: allChats().map(({ messages: _, ...s }) => s) }) as T;
+  if ((p === "/chat/sessions/" || p.startsWith("/chat/sessions/?")) && method === "GET")
+    return delay(pagedRows(allChats().map(({ messages: _, ...s }) => s), p)) as T;
   if (/^\/chat\/sessions\/([^/]+)\/(\?.*)?$/.test(p) && method === "GET") {
     const id = p.match(/^\/chat\/sessions\/([^/]+)\/(\?.*)?$/)?.[1] ?? "";
     const session = allChats().find((c) => c.id === id);
@@ -1108,8 +1716,22 @@ export async function sandboxApiFetch<T = unknown>(
     }
     return delay({ ok: true, session_id: existing?.id ?? "", analyzed: true }) as T;
   }
-  if (p === "/chat/communication/history/" && method === "GET")
-    return delay({ sessions: commSessions() }) as T;
+  if (p.startsWith("/chat/communication/history/") && method === "GET") {
+    const rows = newestFirst(commSessions());
+    return delay({
+      ...pagedRows(rows, p),
+      summary: historySummary(rows as unknown as Record<string, unknown>[], "communication_score", [
+        "clarity",
+        "fluency",
+        "grammar",
+        "vocabulary",
+        "pronunciation",
+        "confidence",
+        "answer_structure",
+        "professional_tone",
+      ]),
+    }) as T;
+  }
   if (/^\/chat\/communication\/([^/]+)\/$/.test(p) && method === "GET") {
     const id = p.match(/^\/chat\/communication\/([^/]+)\/$/)?.[1] ?? "";
     return delay({ session: commSessions().find((x) => x.id === id) }) as T;
@@ -1150,8 +1772,27 @@ export async function sandboxApiFetch<T = unknown>(
     const latest = sessions[0] ?? englishMetrics();
     return delay({ record: { practice_count: sessions.length, last_practiced_at: latest.finalized_at, created_at: latest.created_at, updated_at: latest.updated_at, clarity: latest.clarity, structure: latest.structure, grammar: latest.grammar, vocabulary: latest.vocabulary, spelling: latest.spelling, conciseness: latest.conciseness, task_focus: latest.task_focus, professional_tone: latest.professional_tone, writing_score: latest.writing_score, strengths: latest.strengths, areas_for_improvement: latest.areas_for_improvement, ai_recommendations: latest.ai_recommendations, recurring_mistakes: latest.recurring_mistakes } }) as T;
   }
-  if (p === "/speaking-skills/history/" && method === "GET")
-    return delay({ sessions: englishSessions() }) as T;
+  if (p.startsWith("/speaking-skills/history/") && method === "GET") {
+    const rows = newestFirst(englishSessions());
+    return delay({
+      ...pagedRows(rows, p),
+      summary: historySummary(
+        rows as unknown as Record<string, unknown>[],
+        "writing_score",
+        [
+          "clarity",
+          "structure",
+          "grammar",
+          "vocabulary",
+          "spelling",
+          "conciseness",
+          "task_focus",
+          "professional_tone",
+        ],
+        true,
+      ),
+    }) as T;
+  }
   if (/^\/speaking-skills\/([^/]+)\/$/.test(p) && method === "GET") {
     const id = p.match(/^\/speaking-skills\/([^/]+)\/$/)?.[1] ?? "";
     return delay({ session: englishSessions().find((x) => x.id === id) }) as T;
@@ -1167,6 +1808,7 @@ export async function sandboxApiFetch<T = unknown>(
   }
 
   // Interviews
+  if (p.startsWith("/interview/stats/") && method === "GET") return delay(interviewStats(p)) as T;
   if (p === "/interview/" && method === "GET")
     return delay({ interviews: mockInterviews() }) as T;
   if (p === "/interview/start/" && method === "POST") {
@@ -1284,10 +1926,45 @@ export async function sandboxApiFetch<T = unknown>(
   }
   if (p === "/gd/complete/" && method === "POST") {
     const gd = readJson<GdTrainingRecord[]>(GD_KEY, []);
-    const topic = String(body.topic ?? "");
-    const result = (body.result as { criteria: { label: string; score: number }[]; overall: number; grade: string; strengths: string[]; improvementAreas: string[] }) ?? {
-      criteria: [], overall: 70, grade: "B", strengths: [], improvementAreas: [],
-    };
+    const topic = String(body["topic"] ?? "");
+    const transcript = Array.isArray(body["transcript"])
+      ? (body["transcript"] as { name: string; content: string; from: string }[])
+      : [];
+    const participants = Array.isArray(body["participants"])
+      ? (body["participants"] as GdTrainingRecord["participants"])
+      : undefined;
+    const userTurns = transcript.filter((m) => m.from === "you" && m.content.trim()).length;
+    const scored = userTurns >= 2;
+    const criteriaLabels = [
+      "Content Quality",
+      "Reasoning",
+      "Communication",
+      "Confidence",
+      "Teamwork",
+      "Initiative",
+      "Active Listening",
+      "Build / Challenge",
+    ];
+    const base = Math.min(58 + userTurns * 3, 82);
+    const criteria = scored
+      ? criteriaLabels.map((label, idx) => ({
+          label,
+          score: Math.min(100, Math.max(0, Math.round(base + ((idx * 5) % 13) - 6))),
+        }))
+      : [];
+    const overall = criteria.length
+      ? Math.round(criteria.reduce((s, c) => s + c.score, 0) / criteria.length)
+      : 0;
+    const grade = !scored
+      ? ""
+      : overall >= 85
+        ? "Excellent"
+        : overall >= 70
+          ? "Good"
+          : overall >= 50
+            ? "Average"
+            : "Needs work";
+    const sorted = [...criteria].sort((a, b) => b.score - a.score);
     const record: GdTrainingRecord = {
       id: uid("gd"),
       title: topic.slice(0, 60),
@@ -1296,30 +1973,41 @@ export async function sandboxApiFetch<T = unknown>(
       phase: "completed",
       duration_minutes: 8,
       ended_at: nowIso(),
-      grade: result.grade,
-      overall_score: result.overall,
-      criteria: result.criteria,
-      strengths: result.strengths,
-      improvement_areas: result.improvementAreas,
+      grade,
+      overall_score: overall,
+      criteria,
+      strengths: scored ? sorted.slice(0, 3).map((c) => c.label) : [],
+      improvement_areas: scored
+        ? sorted
+            .slice(-3)
+            .reverse()
+            .map((c) => c.label)
+        : [],
       created_at: nowIso(),
       updated_at: nowIso(),
-      message_count: (Array.isArray(body.transcript) ? body.transcript.length : 0) + 1,
-      participants: Array.isArray(body.participants) ? (body.participants as GdTrainingRecord["participants"]) : undefined,
-      overall_summary: `Round on "${topic}". You opened with a clear view, used evidence and helped close the discussion with a summary.`,
-      transcript: (Array.isArray(body.transcript) ? body.transcript : []).map((m, idx) => ({
-        role: (m as { from: string }).from === "self" ? ("user" as const) : ("assistant" as const),
+      message_count: transcript.length + 1,
+      ...(participants ? { participants } : {}),
+      overall_summary: scored
+        ? `Round on "${topic}". You opened with a clear view, used evidence and helped close the discussion with a summary.`
+        : `Round on "${topic}". Not enough of your own points were recorded to score it fairly.`,
+      transcript: transcript.map((m) => ({
+        role: m.from === "you" ? ("user" as const) : ("assistant" as const),
         speaker: m.name,
         content: m.content,
         created_at: null,
-        ...(idx === 0 ? {} : {}),
       })),
     };
     gd.unshift(record);
     writeJson(GD_KEY, gd);
-    return delay({ id: record.id }) as T;
+    return delay({ id: record.id, session: record }) as T;
   }
-  if (p === "/gd/history/" && method === "GET")
-    return delay({ sessions: readJson<GdTrainingRecord[]>(GD_KEY, []) }) as T;
+  if (p.startsWith("/gd/history/") && method === "GET") {
+    const rows = newestFirst(readJson<GdTrainingRecord[]>(GD_KEY, []));
+    return delay({
+      ...pagedRows(rows, p),
+      rollup: rows.map((s) => ({ overall_score: s.overall_score ?? null, created_at: s.created_at })),
+    }) as T;
+  }
   if (/^\/gd\/([^/]+)\/$/.test(p) && method === "GET") {
     const id = p.match(/^\/gd\/([^/]+)\/$/)?.[1] ?? "";
     return delay({ session: readJson<GdTrainingRecord[]>(GD_KEY, []).find((x) => x.id === id) }) as T;
@@ -1410,8 +2098,8 @@ export async function sandboxApiFetch<T = unknown>(
       }
       return delay({ ok: true, skipped: "0", was_active: false }) as T;
     }
-    if (p === `/${key}/history/` && method === "GET")
-      return delay({ sessions: questionSessions(key) }) as T;
+    if (p.startsWith(`/${key}/history/`) && method === "GET")
+      return delay(moduleHistory(key, p)) as T;
     if (new RegExp(`^/${key}/([^/]+)/$`).test(p) && method === "GET") {
       const id = p.match(new RegExp(`^/${key}/([^/]+)/$`))?.[1] ?? "";
       return delay({ session: questionSessions(key).find((s) => s.id === id) }) as T;
