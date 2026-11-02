@@ -14,6 +14,7 @@ import { Route as AplrTrainingRouteImport } from './routes/aplr-training'
 import { Route as BasicMathTrainingRouteImport } from './routes/basic-math-training'
 import { Route as CandidateProfileRouteImport } from './routes/candidate-profile'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as ClientChatRouteImport } from './routes/client-chat'
 import { Route as ClientProfileRouteImport } from './routes/client-profile'
 import { Route as CodingAssessmentRouteImport } from './routes/coding-assessment'
 import { Route as CommunicationTrainingRouteImport } from './routes/communication-training'
@@ -32,6 +33,7 @@ import { Route as EnglishTrainingTipsRouteImport } from './routes/english-traini
 import { Route as GdHistoryRouteImport } from './routes/gd-history'
 import { Route as GdRoomRouteImport } from './routes/gd-room'
 import { Route as GdTrainingRouteImport } from './routes/gd-training'
+import { Route as InstituteBillingRouteImport } from './routes/institute-billing'
 import { Route as LdTrainingRouteImport } from './routes/ld-training'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as LogoutRouteImport } from './routes/logout'
@@ -79,6 +81,11 @@ const CandidateProfileRoute = CandidateProfileRouteImport.update({
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientChatRoute = ClientChatRouteImport.update({
+  id: '/client-chat',
+  path: '/client-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientProfileRoute = ClientProfileRouteImport.update({
@@ -171,6 +178,11 @@ const GdRoomRoute = GdRoomRouteImport.update({
 const GdTrainingRoute = GdTrainingRouteImport.update({
   id: '/gd-training',
   path: '/gd-training',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstituteBillingRoute = InstituteBillingRouteImport.update({
+  id: '/institute-billing',
+  path: '/institute-billing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LdTrainingRoute = LdTrainingRouteImport.update({
@@ -299,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/basic-math-training': typeof BasicMathTrainingRoute
   '/candidate-profile': typeof CandidateProfileRoute
   '/chat': typeof ChatRoute
+  '/client-chat': typeof ClientChatRoute
   '/client-profile': typeof ClientProfileRoute
   '/coding-assessment': typeof CodingAssessmentRoute
   '/communication-training': typeof CommunicationTrainingRoute
@@ -317,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/gd-history': typeof GdHistoryRoute
   '/gd-room': typeof GdRoomRoute
   '/gd-training': typeof GdTrainingRoute
+  '/institute-billing': typeof InstituteBillingRoute
   '/ld-training': typeof LdTrainingRoute
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
@@ -347,6 +361,7 @@ export interface FileRoutesByTo {
   '/basic-math-training': typeof BasicMathTrainingRoute
   '/candidate-profile': typeof CandidateProfileRoute
   '/chat': typeof ChatRoute
+  '/client-chat': typeof ClientChatRoute
   '/client-profile': typeof ClientProfileRoute
   '/coding-assessment': typeof CodingAssessmentRoute
   '/communication-training': typeof CommunicationTrainingRoute
@@ -365,6 +380,7 @@ export interface FileRoutesByTo {
   '/gd-history': typeof GdHistoryRoute
   '/gd-room': typeof GdRoomRoute
   '/gd-training': typeof GdTrainingRoute
+  '/institute-billing': typeof InstituteBillingRoute
   '/ld-training': typeof LdTrainingRoute
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
@@ -396,6 +412,7 @@ export interface FileRoutesById {
   '/basic-math-training': typeof BasicMathTrainingRoute
   '/candidate-profile': typeof CandidateProfileRoute
   '/chat': typeof ChatRoute
+  '/client-chat': typeof ClientChatRoute
   '/client-profile': typeof ClientProfileRoute
   '/coding-assessment': typeof CodingAssessmentRoute
   '/communication-training': typeof CommunicationTrainingRoute
@@ -414,6 +431,7 @@ export interface FileRoutesById {
   '/gd-history': typeof GdHistoryRoute
   '/gd-room': typeof GdRoomRoute
   '/gd-training': typeof GdTrainingRoute
+  '/institute-billing': typeof InstituteBillingRoute
   '/ld-training': typeof LdTrainingRoute
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
@@ -446,6 +464,7 @@ export interface FileRouteTypes {
     | '/basic-math-training'
     | '/candidate-profile'
     | '/chat'
+    | '/client-chat'
     | '/client-profile'
     | '/coding-assessment'
     | '/communication-training'
@@ -464,6 +483,7 @@ export interface FileRouteTypes {
     | '/gd-history'
     | '/gd-room'
     | '/gd-training'
+    | '/institute-billing'
     | '/ld-training'
     | '/leaderboard'
     | '/logout'
@@ -494,6 +514,7 @@ export interface FileRouteTypes {
     | '/basic-math-training'
     | '/candidate-profile'
     | '/chat'
+    | '/client-chat'
     | '/client-profile'
     | '/coding-assessment'
     | '/communication-training'
@@ -512,6 +533,7 @@ export interface FileRouteTypes {
     | '/gd-history'
     | '/gd-room'
     | '/gd-training'
+    | '/institute-billing'
     | '/ld-training'
     | '/leaderboard'
     | '/logout'
@@ -542,6 +564,7 @@ export interface FileRouteTypes {
     | '/basic-math-training'
     | '/candidate-profile'
     | '/chat'
+    | '/client-chat'
     | '/client-profile'
     | '/coding-assessment'
     | '/communication-training'
@@ -560,6 +583,7 @@ export interface FileRouteTypes {
     | '/gd-history'
     | '/gd-room'
     | '/gd-training'
+    | '/institute-billing'
     | '/ld-training'
     | '/leaderboard'
     | '/logout'
@@ -591,6 +615,7 @@ export interface RootRouteChildren {
   BasicMathTrainingRoute: typeof BasicMathTrainingRoute
   CandidateProfileRoute: typeof CandidateProfileRoute
   ChatRoute: typeof ChatRoute
+  ClientChatRoute: typeof ClientChatRoute
   ClientProfileRoute: typeof ClientProfileRoute
   CodingAssessmentRoute: typeof CodingAssessmentRoute
   CommunicationTrainingRoute: typeof CommunicationTrainingRoute
@@ -609,6 +634,7 @@ export interface RootRouteChildren {
   GdHistoryRoute: typeof GdHistoryRoute
   GdRoomRoute: typeof GdRoomRoute
   GdTrainingRoute: typeof GdTrainingRoute
+  InstituteBillingRoute: typeof InstituteBillingRoute
   LdTrainingRoute: typeof LdTrainingRoute
   LeaderboardRoute: typeof LeaderboardRoute
   LogoutRoute: typeof LogoutRoute
@@ -669,6 +695,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client-chat': {
+      id: '/client-chat'
+      path: '/client-chat'
+      fullPath: '/client-chat'
+      preLoaderRoute: typeof ClientChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/client-profile': {
@@ -795,6 +828,13 @@ declare module '@tanstack/react-router' {
       path: '/gd-training'
       fullPath: '/gd-training'
       preLoaderRoute: typeof GdTrainingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/institute-billing': {
+      id: '/institute-billing'
+      path: '/institute-billing'
+      fullPath: '/institute-billing'
+      preLoaderRoute: typeof InstituteBillingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ld-training': {
@@ -967,6 +1007,7 @@ const rootRouteChildren: RootRouteChildren = {
   BasicMathTrainingRoute: BasicMathTrainingRoute,
   CandidateProfileRoute: CandidateProfileRoute,
   ChatRoute: ChatRoute,
+  ClientChatRoute: ClientChatRoute,
   ClientProfileRoute: ClientProfileRoute,
   CodingAssessmentRoute: CodingAssessmentRoute,
   CommunicationTrainingRoute: CommunicationTrainingRoute,
@@ -985,6 +1026,7 @@ const rootRouteChildren: RootRouteChildren = {
   GdHistoryRoute: GdHistoryRoute,
   GdRoomRoute: GdRoomRoute,
   GdTrainingRoute: GdTrainingRoute,
+  InstituteBillingRoute: InstituteBillingRoute,
   LdTrainingRoute: LdTrainingRoute,
   LeaderboardRoute: LeaderboardRoute,
   LogoutRoute: LogoutRoute,

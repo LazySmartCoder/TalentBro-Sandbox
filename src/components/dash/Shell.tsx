@@ -3,17 +3,15 @@ import {
   GraduationCap,
   Building2,
   CalendarRange,
-  FileBarChart,
+  Landmark,
   Bell,
-  Settings,
+  Bot,
   Menu,
   X,
   ChevronRight,
   LogOut,
-  Users,
   Presentation,
-  LayoutDashboard,
-  Sparkles,
+  ReceiptIndianRupee,
   Repeat,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -24,28 +22,28 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogoutConfirmDialog } from "@/components/logout-confirm";
 import { GateLoading, GateError } from "@/components/load-state";
+import { ClientChatRail } from "@/components/dash/ClientChatRail";
 
-  const NAV = [
-  { to: "/copilot", label: "AI Copilot", icon: Sparkles },
+const NAV = [
   { to: "/students", label: "Students", icon: GraduationCap },
   { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/drives", label: "Drives", icon: CalendarRange },
-  { to: "/placement-cell", label: "Placement Cell", icon: Users },
+  { to: "/placement-cell", label: "Placement Cell", icon: Landmark },
   { to: "/ld-training", label: "L&D Training", icon: Presentation },
-  { to: "/reports", label: "Reports", icon: FileBarChart },
-  { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/dashboard", label: "Settings", icon: Settings },
+  { to: "/institute-billing", label: "Institute Billing", icon: ReceiptIndianRupee },
 ] as const;
 
 export function Shell({
   title,
   subtitle,
   actions,
+  fullBleed,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  fullBleed?: boolean;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
@@ -131,33 +129,32 @@ export function Shell({
         )}
       >
         <div className="flex items-center justify-between px-5 py-6">
-          <Link to="/dashboard" className="flex items-center gap-2.5">
-            <span className="flex items-center gap-2 text-[15px] font-normal tracking-tight text-sidebar-primary">
-              <LayoutDashboard className="size-4" />
-              Client Dashboard
+          <div className="flex min-w-0 items-center gap-2.5">
+            {user.institution_logo ? (
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-white">
+                <img
+                  src={user.institution_logo}
+                  alt={user.institution || "Institution"}
+                  className="size-7 object-contain"
+                />
+              </span>
+            ) : (
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                <Bot className="size-4" />
+              </span>
+            )}
+            <span className="truncate text-[15px] font-normal tracking-tight text-sidebar-primary">
+              {user.institution || "Institution Dashboard"}
             </span>
-          </Link>
+          </div>
           <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Close">
             <X className="size-4" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-0.5 px-3">
+        <nav className="space-y-0.5 px-3">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.to);
-            if (item.label === "Settings") {
-              return (
-                <LogoutConfirmDialog key={item.label}>
-                  <button
-                    type="button"
-                    className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                  >
-                    <LogOut className="size-4 shrink-0" />
-                    <span className="flex-1">Sign out</span>
-                  </button>
-                </LogoutConfirmDialog>
-              );
-            }
             return (
               <Link
                 key={item.label}
@@ -172,31 +169,45 @@ export function Shell({
               >
                 <item.icon className="size-4 shrink-0" />
                 <span className="flex-1">{item.label}</span>
-                {item.label === "Notifications" && unread > 0 && (
-                  <span className="rounded-full bg-sidebar-primary px-1.5 py-0.5 font-mono text-[10px] font-bold text-sidebar-primary-foreground">
-                    {unread}
-                  </span>
-                )}
                 {active && <ChevronRight className="size-3.5" />}
               </Link>
             );
           })}
         </nav>
 
-        <Link
-          to="/client-profile"
-          className="m-3 block rounded-lg border border-sidebar-border p-3.5 transition-colors hover:bg-sidebar-accent/50"
-        >
-          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-sidebar-foreground/50">
-            Signed in
-          </p>
-          <p className="mt-1.5 truncate text-sm font-medium text-sidebar-primary">
-            {user.name || user.email}
-          </p>
-          <p className="truncate text-xs text-sidebar-foreground/60">
-            {user.institution ? `TPO · ${user.institution}` : user.email}
-          </p>
-        </Link>
+        <div onClick={() => setOpen(false)} className="flex min-h-0 flex-1 flex-col px-3 pb-3">
+          <ClientChatRail />
+        </div>
+
+        <div className="m-3 rounded-lg border border-sidebar-border p-2 transition-colors hover:bg-sidebar-accent/50">
+          <div className="flex items-center gap-1">
+            <Link
+              to="/client-profile"
+              aria-label="Open profile"
+              title="Open profile"
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md p-1.5"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-sidebar-primary">
+                  {user.name || user.email}
+                </p>
+                <p className="truncate text-xs text-sidebar-foreground/60">
+                  {user.institution ? `TPO · ${user.institution}` : user.email}
+                </p>
+              </div>
+            </Link>
+            <LogoutConfirmDialog>
+              <button
+                type="button"
+                aria-label="Sign out"
+                title="Sign out"
+                className="mr-1 shrink-0 cursor-pointer rounded p-1.5 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
+              >
+                <LogOut className="size-4" />
+              </button>
+            </LogoutConfirmDialog>
+          </div>
+        </div>
       </aside>
 
       <div className="lg:pl-[248px]">
@@ -243,14 +254,20 @@ export function Shell({
           </div>
         </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold sm:text-[28px]">{title}</h1>
-              {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+        <main
+          className={cn(
+            fullBleed ? "h-[calc(100svh-4rem)] overflow-hidden" : "px-4 py-6 sm:px-6 lg:px-8",
+          )}
+        >
+          {!fullBleed && (
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold sm:text-[28px]">{title}</h1>
+                {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+              </div>
+              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
-            {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-          </div>
+          )}
           {children}
         </main>
       </div>
