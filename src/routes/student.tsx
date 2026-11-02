@@ -14,7 +14,7 @@ const tiles = [
   { to: "/gd-training", label: "Group Discussion", icon: Users, desc: "Practice rounds with AI panel" },
   { to: "/leaderboard", label: "Leaderboard", icon: BarChart3, desc: "Readiness ranking" },
   { to: "/candidate-profile", label: "Profile", icon: FileText, desc: "Resume, skills, projects" },
-  { to: "/companies", label: "Companies & Drives", icon: Briefcase, desc: "Browse companies and apply" },
+  { to: "/company-drives", label: "Companies & Drives", icon: Briefcase, desc: "Browse companies and apply" },
   { to: "/tutorials", label: "Learning", icon: GraduationCap, desc: "Courses, tutorials & resources" },
   { to: "/notifications", label: "Notifications", icon: Sparkles, desc: "Updates from placement cell" },
 ];

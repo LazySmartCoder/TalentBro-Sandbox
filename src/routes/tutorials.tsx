@@ -429,9 +429,69 @@ const YT_BASE = "https://www.googleapis.com/youtube/v3/search";
 /** The search endpoint caps a single page at 50 items, so bigger asks are paged. */
 const YT_PAGE_SIZE = 50;
 
+const DEMO_CHANNELS = [
+  "TalentBro Learning",
+  "Campus to Corporate",
+  "Placement Prep Studio",
+  "The Interview Lab",
+  "Skillforge Academy",
+];
+
+const DEMO_LESSONS = [
+  "Foundations",
+  "Interview Patterns",
+  "Hands-on Walkthrough",
+  "Common Mistakes",
+  "Speed Drill",
+  "Recruiter Perspective",
+  "Mock Breakdown",
+  "Quick Revision",
+];
+
+const DEMO_PALETTES = [
+  ["#0f172a", "#2563eb"],
+  ["#1e1b4b", "#7c3aed"],
+  ["#052e16", "#16a34a"],
+  ["#3b0764", "#db2777"],
+  ["#431407", "#ea580c"],
+  ["#082f49", "#0891b2"],
+];
+
+function demoThumbnail(index: number): string {
+  const [from, to] = DEMO_PALETTES[index % DEMO_PALETTES.length]!;
+  const n = (index % 97) + 1;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>
+  <rect width="640" height="360" fill="url(#g)"/>
+  <circle cx="540" cy="60" r="150" fill="#ffffff" opacity="0.08"/>
+  <circle cx="90" cy="320" r="110" fill="#ffffff" opacity="0.06"/>
+  <text x="40" y="70" font-family="Segoe UI, sans-serif" font-size="16" fill="#ffffff" opacity="0.75" letter-spacing="4">TALENTBRO SANDBOX</text>
+  <text x="40" y="250" font-family="Segoe UI, sans-serif" font-size="64" font-weight="700" fill="#ffffff">${n.toString().padStart(2, "0")}</text>
+  <text x="40" y="300" font-family="Segoe UI, sans-serif" font-size="22" fill="#ffffff" opacity="0.85">Demo lesson</text>
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function demoVideos(query: string, maxResults: number): Video[] {
+  const topic = query.trim() || "placement preparation";
+  const start = Date.UTC(2025, 0, 6);
+  return Array.from({ length: Math.max(1, maxResults) }, (_, index) => {
+    const lesson = DEMO_LESSONS[index % DEMO_LESSONS.length]!;
+    const cycle = Math.floor(index / DEMO_LESSONS.length) + 1;
+    return {
+      videoId: `demo-${index + 1}`,
+      title: `${topic}: ${lesson}${cycle > 1 ? ` (part ${cycle})` : ""}`,
+      channel: DEMO_CHANNELS[index % DEMO_CHANNELS.length]!,
+      publishedAt: new Date(start + index * 3 * 86_400_000).toISOString(),
+      thumbnailUrl: demoThumbnail(index),
+      why: "",
+    };
+  });
+}
+
 async function searchVideos(query: string, maxResults = 8): Promise<Video[]> {
   const key = (import.meta.env["VITE_YOUTUBE_API_KEY"] as string | undefined) ?? "";
-  if (!key) throw new Error("missing-key");
+  if (!key) return demoVideos(query, maxResults);
 
   const videos: Video[] = [];
   let pageToken: string | null = null;
@@ -797,22 +857,56 @@ function VideoPlayerDialog({
   video: Video | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const isDemo = Boolean(video?.videoId.startsWith("demo-"));
+  const lessons = video
+    ? [
+        `Core idea behind ${video.title.split(":")[0] ?? video.title}`,
+        "A worked example you can follow along with",
+        "The mistake most candidates make here",
+        "A two-minute practice drill to finish",
+      ]
+    : [];
   return (
     <Dialog open={Boolean(video)} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(56rem,calc(100vw-1rem))] gap-3 border-border/60 p-3 sm:rounded-xl sm:p-4">
         {video && (
           <>
-            <div className="overflow-hidden rounded-lg bg-black">
-              <iframe
-                key={video.videoId}
-                src={videoEmbedUrl(video)}
-                title={video.title}
-                className="aspect-video w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                referrerPolicy="strict-origin-when-cross-origin"
-              />
-            </div>
+            {isDemo ? (
+              <div className="relative flex aspect-video w-full flex-col justify-between overflow-hidden rounded-lg bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-white sm:p-8">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
+                  <GraduationCap className="size-4" />
+                  Sandbox demo lesson
+                </div>
+                <div className="max-w-xl">
+                  <p className="text-lg font-semibold leading-snug sm:text-2xl">{video.title}</p>
+                  <ul className="mt-4 grid gap-2 text-xs text-white/80 sm:text-sm">
+                    {lessons.map((lesson, index) => (
+                      <li key={lesson} className="flex items-start gap-2">
+                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-white/15 text-[10px] font-semibold">
+                          {index + 1}
+                        </span>
+                        {lesson}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="text-[11px] text-white/50">
+                  Offline demo content · no external video is loaded in the sandbox.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-lg bg-black">
+                <iframe
+                  key={video.videoId}
+                  src={videoEmbedUrl(video)}
+                  title={video.title}
+                  className="aspect-video w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              </div>
+            )}
             <DialogHeader className="pr-8 text-center sm:text-left">
               <DialogTitle className="line-clamp-2 text-sm leading-snug sm:text-base">
                 {video.title}
@@ -1127,8 +1221,6 @@ function TutorialsPage() {
     return <GateError message={errorMessage} />;
   }
 
-  const hasKey = Boolean((import.meta.env["VITE_YOUTUBE_API_KEY"] as string | undefined) ?? "");
-
   const profile = toProfile(user?.profile);
 
   const videoOffsets: number[] = [];
@@ -1164,84 +1256,57 @@ function TutorialsPage() {
       />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        {!hasKey ? (
-          <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
-            <GraduationCap className="mx-auto size-8 text-muted-foreground" />
-            <h2 className="mt-4 text-base font-semibold">Waiting for a YouTube API key</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Set{" "}
-              <code className="rounded bg-muted px-1.5 py-0.5 text-[12px]">
-                VITE_YOUTUBE_API_KEY
-              </code>{" "}
-              in your <code className="rounded bg-muted px-1.5 py-0.5 text-[12px]">.env</code> file
-              and the personalized video list will appear here.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-12">
-            <WeakAreaPanel
-              segments={segments}
-              activeQuery={q}
-              refreshing={refreshing}
-              onRefresh={refreshFeed}
-            />
-            {sections.map((section, index) => (
-              <section key={section.topic.query}>
-                <div className="mb-4 flex items-start gap-2.5">
-                  <span className="mt-1 h-4 w-1 shrink-0 rounded-full bg-foreground/80" />
-                  <div>
-                    <h2 className="text-lg font-semibold">{section.topic.title}</h2>
-                    {describeWhy(section.topic, profile) && (
-                      <p className="mt-1 text-[13px] leading-relaxed text-foreground/80">
-                        {describeWhy(section.topic, profile)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {section.error === "missing-key" && (
-                  <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Add{" "}
-                      <code className="rounded bg-muted px-1.5 py-0.5 text-[12px]">
-                        VITE_YOUTUBE_API_KEY
-                      </code>{" "}
-                      to see videos.
+        <div className="space-y-12">
+          <WeakAreaPanel
+            segments={segments}
+            activeQuery={q}
+            refreshing={refreshing}
+            onRefresh={refreshFeed}
+          />
+          {sections.map((section, index) => (
+            <section key={section.topic.query}>
+              <div className="mb-4 flex items-start gap-2.5">
+                <span className="mt-1 h-4 w-1 shrink-0 rounded-full bg-foreground/80" />
+                <div>
+                  <h2 className="text-lg font-semibold">{section.topic.title}</h2>
+                  {describeWhy(section.topic, profile) && (
+                    <p className="mt-1 text-[13px] leading-relaxed text-foreground/80">
+                      {describeWhy(section.topic, profile)}
                     </p>
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
 
-                {section.error && section.error !== "missing-key" && (
-                  <div className="rounded-xl border border-border bg-card p-8 text-center">
-                    <p className="text-sm text-muted-foreground">Couldn't load videos right now.</p>
-                    <button
-                      type="button"
-                      onClick={() => void retrySection(index)}
-                      className="mt-4 cursor-pointer rounded-md border border-foreground px-4 py-2 text-[11px] uppercase tracking-[0.16em] transition-colors hover:bg-foreground hover:text-background"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                )}
+              {section.error && (
+                <div className="rounded-xl border border-border bg-card p-8 text-center">
+                  <p className="text-sm text-muted-foreground">Couldn't load videos right now.</p>
+                  <button
+                    type="button"
+                    onClick={() => void retrySection(index)}
+                    className="mt-4 cursor-pointer rounded-md border border-foreground px-4 py-2 text-[11px] uppercase tracking-[0.16em] transition-colors hover:bg-foreground hover:text-background"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
 
-                {section.loading && !section.error && <VideoSkeleton count={8} />}
+              {section.loading && !section.error && <VideoSkeleton count={8} />}
 
-                {!section.loading && !section.error && (
-                  <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {section.videos.map((v, vi) => (
-                      <VideoCard
-                        key={v.videoId}
-                        video={v}
-                        number={(videoOffsets[index] ?? 0) + vi + 1}
-                        onPlay={setActiveVideo}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-            ))}
-          </div>
-        )}
+              {!section.loading && !section.error && (
+                <div className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {section.videos.map((v, vi) => (
+                    <VideoCard
+                      key={v.videoId}
+                      video={v}
+                      number={(videoOffsets[index] ?? 0) + vi + 1}
+                      onPlay={setActiveVideo}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
       </main>
 
       <VideoPlayerDialog

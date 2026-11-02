@@ -1288,6 +1288,273 @@ export async function situationalDetail(sessionId: string): Promise<SituationalT
   return data.session;
 }
 
+// ── Coding Assessment ────────────────────────────────────────────────────
+//
+// One quick-fire coding question per chat, pinned to a single language.
+// There is no "surprise me" mode — a language is always required.
+
+export type CodingAssessmentLanguage =
+  | "python"
+  | "c"
+  | "cpp"
+  | "r"
+  | "go"
+  | "java"
+  | "javascript"
+  | "php"
+  | "rust"
+  | "sql"
+  | "swift"
+  | "julia";
+
+export type CodingAssessmentStatus = "active" | "solved" | "gave_up";
+
+export type CodingAssessmentSession = {
+  id: string;
+  title: string;
+  category: CodingAssessmentLanguage;
+  category_label: string;
+  question: string;
+  answer: string;
+  solution: string;
+  status: CodingAssessmentStatus;
+  attempts: number;
+  hints_used: number;
+  points_awarded: number;
+  star_rating: number;
+  solved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  transcript?: {
+    role: "user" | "assistant";
+    content: string;
+    created_at: string;
+  }[];
+};
+
+export type CodingAssessmentStartResponse = {
+  session: CodingAssessmentSession;
+  message: string;
+};
+
+export type CodingAssessmentChatResponse = {
+  session_id: string;
+  reply: string;
+  solved: boolean;
+  gave_up: boolean;
+  closed: boolean;
+  points_awarded: number;
+  star_rating: number;
+};
+
+export async function codingAssessmentStart(body: {
+  category: CodingAssessmentLanguage;
+}): Promise<CodingAssessmentStartResponse> {
+  return apiFetch<CodingAssessmentStartResponse>("/api/coding-assessment/start/", {
+    method: "POST",
+    timeoutMs: LONG_TIMEOUT_MS,
+    body: JSON.stringify({ category: body.category }),
+  });
+}
+
+export async function codingAssessmentChat(
+  sessionId: string,
+  message: string,
+): Promise<CodingAssessmentChatResponse> {
+  return apiFetch<CodingAssessmentChatResponse>("/api/coding-assessment/chat/", {
+    method: "POST",
+    timeoutMs: LONG_TIMEOUT_MS,
+    body: JSON.stringify({ session_id: sessionId, message }),
+  });
+}
+
+export async function codingAssessmentSkip(sessionId?: string): Promise<{
+  ok: boolean;
+  skipped: string | number;
+  was_active?: boolean;
+}> {
+  return apiFetch("/api/coding-assessment/skip/", {
+    method: "POST",
+    body: JSON.stringify(sessionId ? { session_id: sessionId } : {}),
+  });
+}
+
+// Fire-and-forget skip that keeps working when the tab is closed, so leaving
+// mid-question still marks the unanswered question as skipped/gave-up.
+export function codingAssessmentSkipKeepalive(sessionId: string): void {
+  if (!API_BASE) {
+    void sandboxApiFetch("/api/coding-assessment/skip/", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId }),
+    }).catch(() => undefined);
+    return;
+  }
+
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+  headers.set("Content-Type", "application/json");
+  const csrfToken = readCookie("csrftoken");
+  if (csrfToken) headers.set("X-CSRFToken", csrfToken);
+  try {
+    void fetch(`${API_BASE}/api/coding-assessment/skip/`, {
+      method: "POST",
+      credentials: "include",
+      keepalive: true,
+      headers,
+      body: JSON.stringify({ session_id: sessionId }),
+    }).catch(() => {});
+  } catch {
+    // The tab is going away; this is a final best-effort flush.
+  }
+}
+
+export async function codingAssessmentList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<HistoryPage<CodingAssessmentSession, PracticeRollupRow>> {
+  const search = historyQuery(params);
+  return apiFetch<HistoryPage<CodingAssessmentSession, PracticeRollupRow>>(
+    `/api/coding-assessment/history/${search}`,
+  );
+}
+
+export async function codingAssessmentDetail(
+  sessionId: string,
+): Promise<CodingAssessmentSession> {
+  const data = await apiFetch<{ session: CodingAssessmentSession }>(
+    `/api/coding-assessment/${sessionId}/`,
+  );
+  return data.session;
+}
+
+// ── Reading Comprehension ───────────────────────────────────────────────
+
+export type ReadingComprehensionStatus = "active" | "solved" | "gave_up";
+
+export type ReadingVocabWord = {
+  word: string;
+  meaning: string;
+};
+
+export type ReadingQuestion = {
+  question: string;
+  options: string[];
+  answer_index: number;
+  explanation: string;
+};
+
+export type ReadingComprehensionSession = {
+  id: string;
+  title: string;
+  category: string;
+  passage: string;
+  vocab: ReadingVocabWord[];
+  questions: ReadingQuestion[];
+  answers: number[];
+  correct_count: number;
+  status: ReadingComprehensionStatus;
+  points_awarded: number;
+  star_rating: number;
+  solved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  fallback_used?: boolean;
+};
+
+export type ReadingComprehensionStartResponse = {
+  session: ReadingComprehensionSession;
+  message: string;
+};
+
+export type ReadingComprehensionSubmitResponse = {
+  session: ReadingComprehensionSession;
+  correct: number;
+  total: number;
+  points_awarded: number;
+  star_rating: number;
+};
+
+export type ReadingComprehensionSummary = {
+  total_rounds: number;
+  solved: number;
+  gave_up: number;
+  total_points: number;
+};
+
+export async function readingStart(): Promise<ReadingComprehensionStartResponse> {
+  return apiFetch<ReadingComprehensionStartResponse>("/api/reading-comprehension/start/", {
+    method: "POST",
+    timeoutMs: LONG_TIMEOUT_MS,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function readingSubmit(
+  sessionId: string,
+  answers: number[],
+): Promise<ReadingComprehensionSubmitResponse> {
+  return apiFetch<ReadingComprehensionSubmitResponse>("/api/reading-comprehension/submit/", {
+    method: "POST",
+    timeoutMs: LONG_TIMEOUT_MS,
+    body: JSON.stringify({ session_id: sessionId, answers }),
+  });
+}
+
+export async function readingSkip(sessionId?: string): Promise<{
+  skipped: string[];
+}> {
+  return apiFetch("/api/reading-comprehension/skip/", {
+    method: "POST",
+    body: JSON.stringify(sessionId ? { session_id: sessionId } : {}),
+  });
+}
+
+// Fire-and-forget skip that keeps working when the tab is closed, so leaving
+// mid-passage still marks the unanswered round as skipped/gave-up.
+export function readingSkipKeepalive(sessionId: string): void {
+  if (!API_BASE) {
+    void sandboxApiFetch("/api/reading-comprehension/skip/", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId }),
+    }).catch(() => undefined);
+    return;
+  }
+
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+  headers.set("Content-Type", "application/json");
+  const csrfToken = readCookie("csrftoken");
+  if (csrfToken) headers.set("X-CSRFToken", csrfToken);
+  try {
+    void fetch(`${API_BASE}/api/reading-comprehension/skip/`, {
+      method: "POST",
+      credentials: "include",
+      keepalive: true,
+      headers,
+      body: JSON.stringify({ session_id: sessionId }),
+    }).catch(() => {});
+  } catch {
+    // The tab is going away; this is a final best-effort flush.
+  }
+}
+
+export async function readingList(
+  params: { limit?: number; offset?: number } = {},
+): Promise<
+  HistoryPage<ReadingComprehensionSession, PracticeRollupRow> & {
+    summary?: ReadingComprehensionSummary;
+  }
+> {
+  const search = historyQuery(params);
+  return apiFetch(`/api/reading-comprehension/history/${search}`);
+}
+
+export async function readingDetail(sessionId: string): Promise<ReadingComprehensionSession> {
+  const data = await apiFetch<{ session: ReadingComprehensionSession }>(
+    `/api/reading-comprehension/${sessionId}/`,
+  );
+  return data.session;
+}
+
 export async function transcribeAudio(audioBytes: ArrayBuffer, mime: string): Promise<string> {
   // Sandbox has no STT backend — return a canned transcript for voice attempts.
   if (!API_BASE) {
@@ -1360,6 +1627,8 @@ export async function ttsGenerate(text: string, voice?: string): Promise<string>
 
 export type TtsWordTiming = { offset: number; startMs: number };
 
+export type TtsVoiceStyle = { pitchHz?: number; ratePct?: number };
+
 // Same synthesis as ttsGenerate, but asks the backend for the exact start time
 // of every word (WordBoundary metadata returned in the X-Word-Times header).
 // This lets realtime transcript highlights track the clip precisely instead of
@@ -1368,6 +1637,7 @@ export type TtsWordTiming = { offset: number; startMs: number };
 export async function ttsGenerateWithTimings(
   text: string,
   voice?: string,
+  style?: TtsVoiceStyle,
 ): Promise<{ url: string; wordTimes: TtsWordTiming[] }> {
   // Sandbox has no TTS backend; callers already treat 503 as "TTS unavailable".
   if (!API_BASE) {
@@ -1384,7 +1654,13 @@ export async function ttsGenerateWithTimings(
       method: "POST",
       headers,
       credentials: "include",
-      body: JSON.stringify({ text, voice: voice ?? "", boundaries: true }),
+      body: JSON.stringify({
+        text,
+        voice: voice ?? "",
+        boundaries: true,
+        pitch_hz: style?.pitchHz ?? 0,
+        rate_pct: style?.ratePct ?? 0,
+      }),
     });
   } catch {
     throw new ApiError(0, "Could not reach the server.");
@@ -2386,3 +2662,6 @@ export async function createForumPost(body: string): Promise<ForumPost> {
 export async function deleteForumPost(id: string): Promise<void> {
   await apiFetch<{ detail: string }>(`/api/forum/posts/${id}/`, { method: "DELETE" });
 }
+
+
+

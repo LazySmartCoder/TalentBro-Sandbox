@@ -74,8 +74,10 @@ export const Route = createFileRoute("/chat")({
   component: ChatPage,
 });
 
-const STORAGE_SESSIONS = "tb.chat.sessions";
-const STORAGE_ACTIVE = "tb.chat.activeId";
+const STORAGE_SESSIONS = "tb.chat.sessions.v2";
+const STORAGE_ACTIVE = "tb.chat.activeId.v2";
+// Sandbox chat history is deliberately capped at four demo conversations.
+const MAX_CHAT_SESSIONS = 4;
 
 type ChatSession = {
   id: string;
@@ -338,7 +340,9 @@ function loadSessions(): ChatSession[] {
         serverId: s.serverId ?? null,
         updatedAt: s.updatedAt ?? s.createdAt,
       }))
-      .filter((s) => !(s.title === "New chat" && s.messages.length === 0));
+      .filter((s) => !(s.title === "New chat" && s.messages.length === 0))
+      .sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))
+      .slice(0, MAX_CHAT_SESSIONS);
   } catch {
     return [];
   }
@@ -540,7 +544,7 @@ function ChatPage() {
           // (here or on another device) and are stale ghosts — drop them. Only
           // keep truly local sessions that never reached the server.
           const locals = local.filter((s) => !s.serverId && !serverIds.has(s.id));
-          stored = [...serverSessions, ...locals];
+          stored = [...serverSessions, ...locals].slice(0, MAX_CHAT_SESSIONS);
           persist(stored);
         } catch {
           // offline — keep local-only sessions
@@ -628,7 +632,7 @@ function ChatPage() {
   }
 
   function persist(next: ChatSession[]) {
-    const sorted = [...next].sort(sortRecent);
+    const sorted = [...next].sort(sortRecent).slice(0, MAX_CHAT_SESSIONS);
     setSessions(sorted);
     writeStorage(sorted);
   }
@@ -1526,7 +1530,7 @@ function ChatPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void navigate({ to: "/companies" })}
+                onClick={() => void navigate({ to: "/company-drives" })}
                 className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <Building2 className="size-4 shrink-0" />

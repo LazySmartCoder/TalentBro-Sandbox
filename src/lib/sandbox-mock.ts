@@ -39,12 +39,15 @@ import type {
   MockInterviewAnalysis,
   MockInterviewDetail,
   NotificationItem,
+  PanelistId,
   PlacementCompany,
   PlacementDrive,
   PlacementStatus,
   ReportsData,
   StudentRecord,
   StudentsResponse,
+  CodingAssessmentSession,
+  ReadingComprehensionSession,
 } from "./api";
 
 import { panelistPhoto } from "./panelists";
@@ -418,8 +421,8 @@ function studentProfile(): CandidateProfilePayload {
       mock_interviews: 2,
       self_training: 76,
       chat: 85,
-      chat_messages: 46,
-      chat_sessions: 3,
+      chat_messages: 24,
+      chat_sessions: 4,
       modules: [
         { key: "aplr", label: "Aptitude & Logical Reasoning", score: 78 },
         { key: "communication", label: "Communication Skills", score: 83 },
@@ -428,7 +431,7 @@ function studentProfile(): CandidateProfilePayload {
         { key: "gd", label: "Group Discussion", score: 86 },
       ],
     },
-    stats: { chat_sessions: 3, chat_messages: 46 },
+    stats: { chat_sessions: 4, chat_messages: 24 },
     profile_complete: true,
     missing_fields: [],
   };
@@ -440,7 +443,7 @@ type StoredChatSession = ChatSession & {
   messages: (ChatMessage & { id: number; created_at: string })[];
 };
 
-const CHAT_KEY = "sandbox.chats";
+const CHAT_KEY = "sandbox.chats.v2";
 
 function daysAgo(days: number, hour = 10): string {
   const t = new Date();
@@ -452,67 +455,88 @@ function daysAgo(days: number, hour = 10): string {
 function seededChats(): StoredChatSession[] {
   return [
     {
-      id: "chat-demo-1",
-      title: "Preparing for the Infosys drive",
-      created_at: daysAgo(1, 10),
-      updated_at: daysAgo(1, 11),
-      message_count: 4,
+      id: "chat-seed-1",
+      title: "Placement prep plan around classes",
+      created_at: daysAgo(1, 20),
+      updated_at: daysAgo(1, 21),
+      message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "I have an Infosys Systems Engineer drive next week. How do I prepare?", created_at: daysAgo(1, 10) },
-        { id: 2, role: "assistant", content: "Great to see you prepping early! Start with the aptitude basics — percentages, ratios and data interpretation are the most frequent. Then run a couple of mock interviews with us so you get feedback on how you explain your projects.", created_at: daysAgo(1, 10) },
-        { id: 3, role: "user", content: "Which topics should I focus on for the online assessment?", created_at: daysAgo(1, 11) },
-        { id: 4, role: "assistant", content: "Focus order: (1) Aptitude — time & work, percentages, syllogisms. (2) English — grammar and reading comprehension. (3) Technical — OOP, SQL basics and one solid Data Structures topic. Practise with the APLR module here and check the Infosys-specific pointers under Tutorials.", created_at: daysAgo(1, 11) },
+        { id: 1, role: "user", content: "Placement season starts in five weeks and I still have classes. Can you build a prep plan I can actually follow?", created_at: daysAgo(1, 20) },
+        { id: 2, role: "assistant", content: "Yes. Treat it as 5 weeks x 5 weekdays x 90 minutes. Split each session into 45 minutes of focused practice, 30 minutes reviewing mistakes, and 15 minutes writing one takeaway. Weekends are for one full mock interview and one timed assessment.", created_at: daysAgo(1, 20) },
+        { id: 3, role: "user", content: "What should the first week look like?", created_at: daysAgo(1, 20) },
+        { id: 4, role: "assistant", content: "Week 1 is diagnosis, not grinding. Take one aptitude test, one DSA contest-style set, and one mock interview. Log every mistake by type: concept gap, silly error, or speed. That log decides what Week 2 revisits.", created_at: daysAgo(1, 21) },
+        { id: 5, role: "user", content: "And if I only get 45 minutes some days?", created_at: daysAgo(1, 21) },
+        { id: 6, role: "assistant", content: "Shrink, don't skip. Do 30 minutes of the hardest topic and 15 minutes of revision. Consistency beats long sessions you dread — a 45-minute day still keeps the streak alive.", created_at: daysAgo(1, 21) },
       ],
     },
     {
-      id: "chat-demo-2",
-      title: "How to answer Tell me about yourself",
-      created_at: daysAgo(2, 15),
+      id: "chat-seed-2",
+      title: "Making my final-year project sound senior",
+      created_at: daysAgo(2, 14),
       updated_at: daysAgo(2, 15),
-      message_count: 2,
+      message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "How do I answer 'Tell me about yourself' without rambling?", created_at: daysAgo(2, 15) },
-        { id: 2, role: "assistant", content: "Use a 3-part structure: who you are today (course + strongest skill), one concrete proof (a project or internship result), and why this role. Keep it to 60–90 seconds and end with a hook that invites the next question.", created_at: daysAgo(2, 15) },
+        { id: 1, role: "user", content: "My resume says 'Built a college placement portal'. Recruiters don't seem impressed. How do I make it sound stronger?", created_at: daysAgo(2, 14) },
+        { id: 2, role: "assistant", content: "Lead with the problem, the scale, and the measurable outcome. 'Built a placement portal' describes an artifact. 'Built a placement portal used by 500+ students and 30 recruiters, cutting drive coordination time from 3 days to 6 hours' describes impact.", created_at: daysAgo(2, 14) },
+        { id: 3, role: "user", content: "I don't have exact numbers. Can I estimate?", created_at: daysAgo(2, 14) },
+        { id: 4, role: "assistant", content: "Use ranges only if you can defend them. Better to say 'used by 500+ students across 3 departments' if that's true than to invent a percentage. Recruiters probe bullet points in interviews, so every number must have a story behind it.", created_at: daysAgo(2, 15) },
+        { id: 5, role: "user", content: "What about the tools line?", created_at: daysAgo(2, 15) },
+        { id: 6, role: "assistant", content: "Put the stack on the same line as the project but after the impact: '... — React, Node.js, PostgreSQL'. And drop anything you can't answer a follow-up question about. A short, defensible resume beats a long, risky one.", created_at: daysAgo(2, 15) },
       ],
     },
     {
-      id: "chat-demo-3",
-      title: "DSA practice plan for two weeks",
-      created_at: daysAgo(3, 9),
-      updated_at: daysAgo(3, 9),
-      message_count: 2,
+      id: "chat-seed-3",
+      title: "SQL query returning duplicate rows",
+      created_at: daysAgo(3, 11),
+      updated_at: daysAgo(3, 12),
+      message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "Give me a two-week DSA revision plan before placement season.", created_at: daysAgo(3, 9) },
-        { id: 2, role: "assistant", content: "Week 1: arrays, strings, hashing and two-pointer patterns — 3 problems a day. Week 2: trees, graphs, recursion and dynamic programming — 2 problems plus one timed mock. Re-solve anything you miss within 48 hours and track patterns, not just counts.", created_at: daysAgo(3, 9) },
+        { id: 1, role: "user", content: "My JOIN query returns more rows than the original table. Why?", created_at: daysAgo(3, 11) },
+        { id: 2, role: "assistant", content: "That usually means the join key is not unique on the other side. If one orders row matches three order_items rows, the order appears three times. Check the cardinality with SELECT order_id, COUNT(*) FROM order_items GROUP BY order_id HAVING COUNT(*) > 1.", created_at: daysAgo(3, 11) },
+        { id: 3, role: "user", content: "I just want one row per order. How do I fix it?", created_at: daysAgo(3, 11) },
+        { id: 4, role: "assistant", content: "Three options: aggregate the child rows (SUM, COUNT) in a subquery and join that, use EXISTS if you only need to filter, or use DISTINCT if the duplicated columns are identical. Pick based on whether you need the child data or just a yes/no test.", created_at: daysAgo(3, 12) },
+        { id: 5, role: "user", content: "Which is fastest?", created_at: daysAgo(3, 12) },
+        { id: 6, role: "assistant", content: "EXISTS is usually cheapest when you only need existence because the engine can stop at the first match. Aggregate-then-join is best when you need totals. DISTINCT is a code smell if it's hiding a join you didn't design carefully.", created_at: daysAgo(3, 12) },
       ],
     },
     {
-      id: "chat-demo-4",
-      title: "Resume summary review",
-      created_at: daysAgo(4, 17),
-      updated_at: daysAgo(4, 18),
-      message_count: 4,
+      id: "chat-seed-4",
+      title: "Freezing up in HR interviews",
+      created_at: daysAgo(4, 18),
+      updated_at: daysAgo(4, 19),
+      message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "Can you review a resume summary for a fresher SDE role?", created_at: daysAgo(4, 17) },
-        { id: 2, role: "assistant", content: "Share the summary and I'll tighten it. A strong fresher summary names your degree, your strongest stack, and one measurable outcome from a project or internship — no generic phrases like 'hardworking individual'.", created_at: daysAgo(4, 17) },
-        { id: 3, role: "user", content: "I built a placement readiness dashboard for my college.", created_at: daysAgo(4, 18) },
-        { id: 4, role: "assistant", content: "Turn that into impact: “Built a placement readiness dashboard used by 500+ students to track Aptitude, DSA and mock-interview scores, cutting reporting time for the placement cell by 40%.” That gives scale, users and a result in one line.", created_at: daysAgo(4, 18) },
+        { id: 1, role: "user", content: "I do fine in technical rounds but I freeze in HR interviews. Any advice?", created_at: daysAgo(4, 18) },
+        { id: 2, role: "assistant", content: "Freezing usually comes from treating HR rounds as improvisation. They're actually pattern questions. Prepare six stories — conflict, failure, teamwork, deadline, initiative, and learning — and you can answer almost any behavioural question by adapting one.", created_at: daysAgo(4, 18) },
+        { id: 3, role: "user", content: "How long should each answer be?", created_at: daysAgo(4, 18) },
+        { id: 4, role: "assistant", content: "Use STAR in about 90 seconds: 15 seconds situation, 20 seconds task, 40 seconds action, 15 seconds result. If you speak for three minutes, the interviewer stops listening for the result.", created_at: daysAgo(4, 19) },
+        { id: 5, role: "user", content: "What if they ask something I've never experienced?", created_at: daysAgo(4, 19) },
+        { id: 6, role: "assistant", content: "Say so briefly, then bridge: 'I haven't faced exactly that, but the closest was...' Interviewers care about your reasoning, not a perfect anecdote. Rehearsing out loud twice with a friend is worth more than reading ten articles.", created_at: daysAgo(4, 19) },
       ],
     },
   ];
 }
 
+const MAX_CHAT_SESSIONS = 4;
+
 function allChats(): StoredChatSession[] {
   const stored = readJson<StoredChatSession[]>(CHAT_KEY, []);
-  return stored.length ? stored : seededChats();
+  const source = stored.length ? stored : seededChats();
+  const sorted = [...source].sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  );
+  return sorted.slice(0, MAX_CHAT_SESSIONS);
 }
 
 function saveChats(chats: StoredChatSession[]): void {
-  writeJson(CHAT_KEY, chats);
+  const sorted = [...chats].sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  );
+  writeJson(CHAT_KEY, sorted.slice(0, MAX_CHAT_SESSIONS));
 }
 
 function demoChatReply(message: string, title: string): string {
@@ -584,9 +608,84 @@ const INTERVIEW_QUESTIONS = [
   "Walk me through your final-year project. What problem does it solve and what was your specific contribution?",
   "Explain a data structure you used recently and why you chose it over the alternatives.",
   "Tell me about a time you worked in a team under a tight deadline.",
-  "What do you know about this company's products, and why do you want to join us?",
+  "What do you know about {company}'s products, and why do you want to join us?",
   "Describe a bug you debugged that took longer than expected. How did you resolve it?",
+  "Which subject or skill from college do you feel most confident about, and where have you applied it outside the classroom?",
+  "Tell me about a time you disagreed with a teammate. How did you handle it?",
+  "Walk me through how you would design a simple feature for a {role} at {company}.",
+  "What is the hardest technical decision you have had to make so far? What did you choose and why?",
+  "Describe a project where you had to learn something completely new in a short time.",
+  "How do you prioritise your work when you have multiple deadlines at once?",
+  "Tell me about a failure that taught you something important. What did you change afterwards?",
+  "If a senior engineer told you your approach was wrong, how would you respond?",
+  "Explain a concept from your domain as if I were a first-year student.",
+  "What metrics would you use to decide whether a feature at {company} is working?",
+  "Tell me about a time you took ownership of something outside your assigned work.",
+  "How do you make sure your work is accurate when nobody is checking it?",
+  "What would you do in your first 30 days as a {role} at {company}?",
+  "Describe a situation where you had to explain a technical idea to a non-technical person.",
+  "What is one thing on your resume that you would like to improve, and how are you working on it?",
+  "How do you handle feedback that you disagree with?",
+  "Where do you see yourself growing in the next two years, and how does {company} fit that plan?",
 ];
+
+const INTERVIEW_DURATION_EXCHANGES: Record<"short" | "standard" | "long", number> = {
+  short: 4,
+  standard: 10,
+  long: 20,
+};
+
+const PANEL_IDS: PanelistId[] = ["atlas", "maya", "albert", "peter", "daniel", "ada", "carl"];
+
+function sanitizePanelSelection(input: unknown): PanelistId[] {
+  const out: PanelistId[] = [];
+  if (Array.isArray(input)) {
+    for (const raw of input) {
+      const id = String(raw) as PanelistId;
+      if (PANEL_IDS.includes(id) && !out.includes(id)) out.push(id);
+    }
+  }
+  if (out.length === 0) out.push(...PANEL_IDS);
+  if (!out.includes("atlas")) out.unshift("atlas");
+  return out;
+}
+
+function mockQuestionsFor(
+  company: string,
+  role: string,
+  duration: "short" | "standard" | "long",
+  provided: string[],
+): string[] {
+  const custom = provided.map((q) => q.trim()).filter(Boolean);
+  if (custom.length > 0) return custom;
+  const count = INTERVIEW_DURATION_EXCHANGES[duration] ?? INTERVIEW_DURATION_EXCHANGES.standard;
+  const fill = (q: string) =>
+    q.replace(/\{company\}/g, company || "this company").replace(/\{role\}/g, role || "this role");
+  const pool = INTERVIEW_QUESTIONS.map(fill);
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
+function nextMockSpeaker(interview: MockInterviewDetail, roster: PanelistId[]): PanelistId {
+  if (roster.length === 0) return "atlas";
+  if (roster.length === 1) return roster[0]!;
+  const spoken = interview.messages
+    .filter((m) => m.role === "assistant" && m.panelist && roster.includes(m.panelist as PanelistId))
+    .map((m) => m.panelist as PanelistId);
+  const previous = spoken[spoken.length - 1];
+  const candidates = roster.filter((id) => id !== previous);
+  const pool = candidates.length > 0 ? candidates : [...roster];
+  const rank = (id: PanelistId) => {
+    const turns = spoken.filter((speaker) => speaker === id).length;
+    const lastAt = spoken.lastIndexOf(id);
+    return { turns, lastAt };
+  };
+  return pool.reduce((best, id) => {
+    const a = rank(id);
+    const b = rank(best);
+    if (a.turns !== b.turns) return a.turns < b.turns ? id : best;
+    return a.lastAt < b.lastAt ? id : best;
+  });
+}
 
 const INTERVIEW_RESULTS: Record<string, string> = {
   "How would you rate your preparation for this role?": "Solid fundamentals with good project depth; could improve on behavioural stories.",
@@ -604,7 +703,7 @@ function seededInterviews(): MockInterviewDetail[] {
       panelist_response: {
         maya: "Clear project narrative. Keep your STAR examples closer to the questions asked.",
         albert: "Good technical reasoning. Practise explaining trade-offs faster.",
-      },
+      } as MockInterviewDetail["panelist_response"],
       suspection: 0,
       status: "completed",
       created_at: `${BATCH_YEAR}-08-20T10:30:00Z`,
@@ -612,11 +711,11 @@ function seededInterviews(): MockInterviewDetail[] {
       message_count: 6,
       messages: [
         { id: 1, role: "assistant", panelist: "maya", content: "Good morning Aarav! I'm Maya. Let's start — walk me through your final-year project.", created_at: `${BATCH_YEAR}-08-20T10:30:10Z` },
-        { id: 2, role: "user", panelist: undefined, content: "Morning! My project is a campus placement readiness dashboard..." },
+        { id: 2, role: "user", content: "Morning! My project is a campus placement readiness dashboard...", created_at: `${BATCH_YEAR}-08-20T10:32:30Z` },
         { id: 3, role: "assistant", panelist: "albert", content: "Nice. Which data structure did you rely on for rankings and why?", created_at: `${BATCH_YEAR}-08-20T10:34:00Z` },
-        { id: 4, role: "user", panelist: undefined, content: "A priority queue backed by a heap, because ranking updates are frequent." },
+        { id: 4, role: "user", content: "A priority queue backed by a heap, because ranking updates are frequent.", created_at: `${BATCH_YEAR}-08-20T10:36:00Z` },
         { id: 5, role: "assistant", panelist: "maya", content: "Good choice. One more — tell me about a team deadline you handled.", created_at: `${BATCH_YEAR}-08-20T10:37:00Z` },
-        { id: 6, role: "user", panelist: undefined, content: "During our hackathon..." },
+        { id: 6, role: "user", content: "During our hackathon...", created_at: `${BATCH_YEAR}-08-20T10:39:00Z` },
       ],
       analysis: {
         id: "mi-an-1",
@@ -709,6 +808,30 @@ function computeInterviewAnalysis(i: MockInterviewDetail): MockInterviewAnalysis
       threats: "Star setups could be sharper for behavioural questions.",
     },
   };
+}
+
+function finalizeMockInterview(interview: MockInterviewDetail): MockInterviewAnalysis | null {
+  const userTurns = interview.messages.filter((m) => m.role === "user").length;
+  if (userTurns < 2) {
+    if (interview.status !== "not_scored") {
+      interview.status = "not_scored";
+    }
+    interview.analysis = null;
+    interview.updated_at = nowIso();
+    return null;
+  }
+  if (interview.status !== "completed" || !interview.analysis) {
+    interview.status = "completed";
+    const analysis = interview.analysis ?? computeInterviewAnalysis(interview);
+    interview.analysis = analysis;
+    const response: Record<string, string> = { ...(interview.panelist_response ?? {}) };
+    for (const remark of analysis.improvements) {
+      if (!response[remark.panelist]) response[remark.panelist] = remark.remark;
+    }
+    interview.panelist_response = response as MockInterviewDetail["panelist_response"];
+  }
+  interview.updated_at = nowIso();
+  return interview.analysis ?? null;
 }
 
 // ── GD ──────────────────────────────────────────────────────────────────
@@ -1438,6 +1561,183 @@ function interviewStats(path: string) {
   };
 }
 
+// ── Coding assessment ───────────────────────────────────────────────────
+
+const CODING_KEY = "sandbox.coding";
+
+const CODING_LANGUAGE_LABELS: Record<string, string> = {
+  python: "Python",
+  c: "C",
+  cpp: "C++",
+  r: "R",
+  go: "Go",
+  java: "Java",
+  javascript: "JavaScript",
+  php: "PHP",
+  rust: "Rust",
+  sql: "SQL",
+  swift: "Swift",
+  julia: "Julia",
+};
+
+const CODING_BANKS: Record<string, Question[]> = {
+  python: [
+    { category: "python", category_label: "Python", question: "Write a function that returns the second largest distinct number in a list.", answer: "sort unique then take index -2", solution: "sorted(set(nums))[-2] after checking length ≥ 2 — O(n log n) time, O(n) space." },
+    { category: "python", category_label: "Python", question: "How would you count the frequency of each word in a sentence in one line?", answer: "Counter(sentence.split())", solution: "collections.Counter(sentence.split()) returns a dict-like frequency map." },
+  ],
+  c: [
+    { category: "c", category_label: "C", question: "Write a C snippet that reverses a null-terminated string in place.", answer: "two pointers swap", solution: "Point at both ends, swap while left < right, then advance towards the middle." },
+  ],
+  cpp: [
+    { category: "cpp", category_label: "C++", question: "How do you check whether a string is a palindrome in C++?", answer: "std::equal with rbegin", solution: "std::equal(s.begin(), s.begin() + s.size()/2, s.rbegin()) compares halves." },
+  ],
+  r: [
+    { category: "r", category_label: "R", question: "How do you compute the mean of a numeric vector while ignoring NA values?", answer: "mean(x, na.rm = TRUE)", solution: "The na.rm argument drops missing values before averaging." },
+  ],
+  go: [
+    { category: "go", category_label: "Go", question: "How do you safely send on a channel after it may have been closed?", answer: "use select with a done channel", solution: "Select between the send and a cancellation signal, or use a sync.Once to close exactly once." },
+  ],
+  java: [
+    { category: "java", category_label: "Java", question: "How do you reverse a string in Java without extra library helpers?", answer: "StringBuilder reverse", solution: "new StringBuilder(input).reverse().toString() — O(n) time and space." },
+  ],
+  javascript: [
+    { category: "javascript", category_label: "JavaScript", question: "Write a one-liner that flattens a nested array by one level.", answer: "arr.flat()", solution: "Array.prototype.flat(1) flattens one level; pass Infinity for full depth." },
+  ],
+  php: [
+    { category: "php", category_label: "PHP", question: "How do you remove duplicate values from a PHP array?", answer: "array_unique", solution: "array_unique($arr) keeps the first occurrence of each value." },
+  ],
+  rust: [
+    { category: "rust", category_label: "Rust", question: "How do you swap two mutable variables in Rust safely?", answer: "std::mem::swap", solution: "std::mem::swap(&mut a, &mut b) swaps values without cloning." },
+  ],
+  sql: [
+    { category: "sql", category_label: "SQL", question: "Write a query that returns the second highest salary from an employees table.", answer: "SELECT MAX(salary) ... WHERE salary < (SELECT MAX(salary) ...)", solution: "Use a subquery to exclude the highest salary, then take the max of the remainder." },
+  ],
+  swift: [
+    { category: "swift", category_label: "Swift", question: "How do you safely unwrap an optional in Swift?", answer: "if let or guard let", solution: "if let value = optional { ... } or guard let value = optional else { return }." },
+  ],
+  julia: [
+    { category: "julia", category_label: "Julia", question: "How do you broadcast a function over a vector in Julia?", answer: "f.(vector)", solution: "The dot syntax f.(v) applies f element-wise without an explicit loop." },
+  ],
+};
+
+function codingSessions(): CodingAssessmentSession[] {
+  return readJson<CodingAssessmentSession[]>(CODING_KEY, []);
+}
+
+function saveCodingSessions(sessions: CodingAssessmentSession[]): void {
+  writeJson(CODING_KEY, sessions);
+}
+
+function pickCodingQuestion(language: string): Question {
+  const bank = CODING_BANKS[language] ?? CODING_BANKS["python"]!;
+  const used = new Set(codingSessions().map((s) => s.question));
+  return bank.find((q) => !used.has(q.question)) ?? bank[0]!;
+}
+
+function codingHistory(path: string) {
+  const all = codingSessions();
+  const page = pagedRows(all, path);
+  return {
+    ...page,
+    rollup: all.map((s) => ({
+      status: s.status,
+      points_awarded: s.points_awarded,
+      star_rating: s.star_rating,
+      category: s.category,
+      created_at: s.created_at,
+    })),
+  };
+}
+
+// ── Reading comprehension ───────────────────────────────────────────────
+
+const READING_KEY = "sandbox.reading";
+
+type ReadingPassage = {
+  title: string;
+  category: string;
+  passage: string;
+  vocab: { word: string; meaning: string }[];
+  questions: { question: string; options: string[]; answer_index: number; explanation: string }[];
+};
+
+const READING_BANK: ReadingPassage[] = [
+  {
+    title: "The Quiet Power of Habit",
+    category: "Everyday Science",
+    passage:
+      "Habits shape far more of our daily behaviour than deliberate decisions do. A habit forms when a cue triggers a routine that produces a reward, and repetition strengthens the link between all three. Because the brain conserves effort by automating repeated actions, habits can be helpful or harmful depending on what they reinforce. The good news is that habits are not destiny: by changing the cue or the reward, people can gradually replace an unhelpful routine with a better one. Researchers emphasise that consistency matters more than intensity, since small actions repeated daily accumulate into lasting change.",
+    vocab: [
+      { word: "deliberate", meaning: "done consciously and intentionally" },
+      { word: "conserve", meaning: "to protect from loss or waste" },
+      { word: "reinforce", meaning: "to strengthen or support" },
+      { word: "destiny", meaning: "events that are predetermined or inevitable" },
+      { word: "accumulate", meaning: "to gather or build up over time" },
+    ],
+    questions: [
+      { question: "According to the passage, what strengthens a habit?", options: ["Avoiding rewards", "Repetition of cue, routine and reward", "Making more deliberate decisions", "Changing the environment daily"], answer_index: 1, explanation: "The passage says repetition strengthens the link between cue, routine and reward." },
+      { question: "Why does the brain automate repeated actions?", options: ["To create new habits", "To conserve effort", "To avoid rewards", "To increase intensity"], answer_index: 1, explanation: "The passage states the brain conserves effort by automating repeated actions." },
+      { question: "The author's attitude towards changing habits is best described as…", options: ["Pessimistic", "Indifferent", "Hopeful", "Confused"], answer_index: 2, explanation: "The phrase 'habits are not destiny' signals a hopeful view." },
+      { question: "Which of these is NOT mentioned as a way to replace a habit?", options: ["Changing the cue", "Changing the reward", "Replacing the routine", "Ignoring the habit entirely"], answer_index: 3, explanation: "The passage mentions changing the cue or reward, not ignoring the habit." },
+      { question: "What does the word 'accumulate' mean in the passage?", options: ["To disappear quickly", "To build up over time", "To repeat intensely", "To conserve energy"], answer_index: 1, explanation: "Accumulate means to gather or build up gradually." },
+    ],
+  },
+  {
+    title: "Why Cities Need Trees",
+    category: "Environment",
+    passage:
+      "Urban trees are more than decoration. They shade streets, lowering surface temperatures and reducing the energy used for cooling. Their leaves trap dust and absorb some pollutants, improving air quality. Trees also slow rainwater, helping to prevent sudden runoff that can overwhelm drains. Beyond these physical benefits, green spaces provide psychological relief: studies report lower stress levels among people who can see trees from their homes. Maintaining urban trees requires planning, since young trees need water and protection before they become self-sufficient. Yet the long-term returns — cooler, cleaner and calmer cities — make the investment worthwhile.",
+    vocab: [
+      { word: "decoration", meaning: "something added to make a place look attractive" },
+      { word: "pollutants", meaning: "substances that make air, water or soil dirty" },
+      { word: "runoff", meaning: "water that flows over the ground surface" },
+      { word: "psychological", meaning: "related to the mind and emotions" },
+      { word: "self-sufficient", meaning: "able to survive without outside help" },
+    ],
+    questions: [
+      { question: "How do urban trees help with temperature?", options: ["By producing rain", "By shading streets", "By absorbing heat into roots", "By blocking wind"], answer_index: 1, explanation: "The passage says trees shade streets, lowering surface temperatures." },
+      { question: "What role do leaves play in air quality?", options: ["They trap dust and absorb pollutants", "They release dust", "They create runoff", "They block sunlight"], answer_index: 0, explanation: "Leaves trap dust and absorb some pollutants." },
+      { question: "According to the passage, trees can reduce stress because…", options: ["They lower energy bills", "They prevent floods", "People can see them from home", "They require planning"], answer_index: 2, explanation: "Studies report lower stress among people who can see trees from their homes." },
+      { question: "Why do young trees need protection?", options: ["They grow too quickly", "They are not yet self-sufficient", "They attract too many people", "They block drains"], answer_index: 1, explanation: "Young trees need water and protection before becoming self-sufficient." },
+      { question: "What does 'runoff' refer to in the passage?", options: ["Water flowing over the ground", "Air pollution", "Tree maintenance", "Energy use"], answer_index: 0, explanation: "Runoff is rainwater that flows over the ground and can overwhelm drains." },
+    ],
+  },
+];
+
+function readingSessions(): ReadingComprehensionSession[] {
+  return readJson<ReadingComprehensionSession[]>(READING_KEY, []);
+}
+
+function saveReadingSessions(sessions: ReadingComprehensionSession[]): void {
+  writeJson(READING_KEY, sessions);
+}
+
+function pickReadingPassage(): ReadingPassage {
+  const used = new Set(readingSessions().map((s) => s.title));
+  return READING_BANK.find((p) => !used.has(p.title)) ?? READING_BANK[0]!;
+}
+
+function readingHistory(path: string) {
+  const all = readingSessions();
+  const page = pagedRows(all, path);
+  return {
+    ...page,
+    rollup: all.map((s) => ({
+      status: s.status,
+      points_awarded: s.points_awarded,
+      star_rating: s.star_rating,
+      category: s.category,
+      created_at: s.created_at,
+    })),
+    summary: {
+      total_rounds: all.length,
+      solved: all.filter((s) => s.status === "solved").length,
+      gave_up: all.filter((s) => s.status === "gave_up").length,
+      total_points: all.reduce((sum, s) => sum + s.points_awarded, 0),
+    },
+  };
+}
+
 export async function sandboxApiFetch<T = unknown>(
   path: string,
   init: RequestInit = {},
@@ -1813,74 +2113,151 @@ export async function sandboxApiFetch<T = unknown>(
     return delay({ interviews: mockInterviews() }) as T;
   if (p === "/interview/start/" && method === "POST") {
     const interviews = mockInterviews();
-    const company = String(body.company_name ?? "Persistent Systems");
-    const role = String(body.role ?? "SDE-1");
-    const questions = Array.isArray(body.questions) ? (body.questions as string[]).filter(Boolean) : [];
-    const qs = questions.length ? [...questions].slice(0, Math.max(1, questions.length)) : INTERVIEW_QUESTIONS.slice(0, 3);
-    const panelists = (["maya", "albert"] as string[]).slice(0, Math.min(2, Math.max(1, qs.length)));
+    const company = String(body["company_name"] ?? "").trim() || "Persistent Systems";
+    const role = String(body["role"] ?? "").trim() || "SDE-1";
+    const requestedDuration = String(body["duration"] ?? "standard");
+    const duration: "short" | "standard" | "long" =
+      requestedDuration === "short" || requestedDuration === "long"
+        ? requestedDuration
+        : "standard";
+    const rawQuestions = body["questions"];
+    const provided = Array.isArray(rawQuestions)
+      ? (rawQuestions as unknown[]).map(String)
+      : typeof rawQuestions === "string"
+        ? rawQuestions.split(/\n+/)
+        : [];
+    const qs = mockQuestionsFor(company, role, duration, provided);
+    const panelists = sanitizePanelSelection(body["panelists"]);
+    const opener = panelists.includes("atlas") ? "atlas" : panelists[0]!;
+    const guests = panelists
+      .filter((id) => id !== "atlas")
+      .map((id) => PANELISTS.find((member) => member.id === id)?.name ?? id);
+    const greeting =
+      opener === "atlas"
+        ? guests.length > 0
+          ? `Welcome, welcome! Glad you made it to ${company}. I'm Atlas, and joining us today are ${guests.join(", ")}. We'll keep this conversational: your background, a couple of projects, some technical depth, and a behavioural round. Let's get started.`
+          : `Welcome, welcome! Glad you made it to ${company}. I'm Atlas, and it's just the two of us today. We'll keep this conversational: background, projects, technical depth, and a behavioural round. Let's get started.`
+        : `Welcome to your ${company} interview for the ${role} role. I'm ${PANELISTS.find((member) => member.id === opener)?.name ?? opener}, and I'll be starting us off.`;
     const interview: MockInterviewDetail = {
       id: uid("mi"),
       company_name: company,
       role,
       questions: qs,
-      duration: (body.duration as "short" | "standard" | "long") ?? "standard",
-      panelists: panelists as MockInterviewDetail["panelists"],
-      panelist_response: {},
+      duration,
+      panelists,
+      panelist_response: {} as MockInterviewDetail["panelist_response"],
       suspection: 0,
       status: "active",
       created_at: nowIso(),
       updated_at: nowIso(),
-      message_count: 0,
+      message_count: 1,
       messages: [
-        { id: 1, role: "assistant", panelist: "maya", tone: "warm", content: `Welcome to your ${company} mock interview, Aarav! I'm Maya. Let's begin — ${qs[0]}`, created_at: nowIso() },
+        {
+          id: 1,
+          role: "assistant",
+          panelist: opener,
+          tone: "warm",
+          content: `${greeting} ${qs[0]}`,
+          created_at: nowIso(),
+        },
       ],
     };
     interviews.unshift(interview);
     saveInterviews(interviews);
-    return delay({ interview, reply: interview.messages[0]!.content, panelist: "maya" }) as T;
+    return delay({ interview, reply: interview.messages[0]!.content, panelist: opener }) as T;
   }
   if (p === "/interview/reply/" && method === "POST") {
-    const id = String(body.interview_id ?? "");
-    const answer = String(body.answer ?? "");
+    const id = String(body["interview_id"] ?? "");
+    const answer = String(body["answer"] ?? "").trim();
     const interviews = mockInterviews();
     const interview = interviews.find((i) => i.id === id);
-    if (interview) {
-      interview.messages.push({ id: interview.messages.length + 1, role: "user", content: answer, created_at: nowIso() });
-      interview.message_count = interview.messages.length;
-      const answered = interview.messages.filter((m) => m.role === "user").length;
-      const nextQuestion = interview.questions[answered] ?? null;
-      const tone = answered % 2 === 0 ? "warm" : "neutral";
-      if (nextQuestion) {
-        const nextPanelist = interview.panelists[answered % interview.panelists.length] ?? "maya";
-        const reply = `Thanks! ${nextQuestion}`;
-        interview.messages.push({ id: interview.messages.length + 1, role: "assistant", panelist: nextPanelist, tone, content: reply, created_at: nowIso() });
-        interview.message_count = interview.messages.length;
-        interview.updated_at = nowIso();
-        saveInterviews(interviews);
-        return delay({ reply, panelist: nextPanelist, done: false, tone });
-      }
-      const panelistId = interview.panelists[0] ?? "maya";
-      const reply = `That wraps up your ${interview.company_name} interview, Aarav. Well done — I've locked in your transcript and analysis. Review the feedback under Interview Analysis.`;
-      interview.messages.push({ id: interview.messages.length + 1, role: "assistant", panelist: panelistId, tone: "warm", content: reply, created_at: nowIso() });
-      interview.status = "completed";
-      interview.updated_at = nowIso();
-      const analysis = computeInterviewAnalysis(interview);
-      interview.analysis = analysis;
-      saveInterviews(interviews);
-      return delay({ reply, panelist: panelistId, done: true, tone: "warm", analysis });
+    if (!interview) {
+      throw Object.assign(new Error("Mock interview not found."), { status: 404 });
     }
-    return delay({ reply: "Interview not found.", panelist: "maya", done: true });
+    if (interview.status !== "active") {
+      throw Object.assign(new Error("This interview has already ended."), { status: 400 });
+    }
+    if (!answer) {
+      throw Object.assign(new Error("Answer is required."), { status: 400 });
+    }
+    interview.messages.push({
+      id: interview.messages.length + 1,
+      role: "user",
+      content: answer,
+      created_at: nowIso(),
+    });
+    interview.message_count = interview.messages.length;
+    const answered = interview.messages.filter((m) => m.role === "user").length;
+    const nextQuestion = interview.questions[answered] ?? null;
+    const roster = sanitizePanelSelection(interview.panelists);
+    const nextPanelist = nextMockSpeaker(interview, roster);
+    const tone = answer.length >= 140 ? "positive" : answer.length <= 24 ? "negative" : "neutral";
+    if (nextQuestion) {
+      const reaction =
+        tone === "positive"
+          ? "Good, that has some real detail in it."
+          : tone === "negative"
+            ? "Fair enough, let's pull that apart a little more."
+            : "Thanks, that's useful context.";
+      const reply = `${reaction} ${nextQuestion}`;
+      interview.messages.push({
+        id: interview.messages.length + 1,
+        role: "assistant",
+        panelist: nextPanelist,
+        tone,
+        content: reply,
+        created_at: nowIso(),
+      });
+      interview.message_count = interview.messages.length;
+      interview.updated_at = nowIso();
+      saveInterviews(interviews);
+      return delay({ reply, panelist: nextPanelist, done: false, tone }) as T;
+    }
+    const closingPanelist = roster.includes("atlas") ? "atlas" : roster[0]!;
+    const reply = `That brings us to the end of your ${interview.company_name} interview. Thanks for walking us through your work so thoughtfully. I've locked in your transcript and analysis, so you can review the full feedback under Interview Analysis.`;
+    interview.messages.push({
+      id: interview.messages.length + 1,
+      role: "assistant",
+      panelist: closingPanelist,
+      tone: "warm",
+      content: reply,
+      created_at: nowIso(),
+    });
+    interview.message_count = interview.messages.length;
+    const analysis = finalizeMockInterview(interview);
+    saveInterviews(interviews);
+    return delay({ reply, panelist: closingPanelist, done: true, tone: "warm", analysis }) as T;
   }
   if (/^\/interview\/([^/]+)\/resume\/$/.test(p) && method === "POST") {
     const id = p.match(/^\/interview\/([^/]+)\/resume\/$/)?.[1] ?? "";
-    const interview = mockInterviews().find((i) => i.id === id);
-    if (interview) {
-      const answered = interview.messages.filter((m) => m.role === "user").length;
-      const nextQuestion = interview.questions[answered] ?? "All questions were already covered — let's wrap up.";
-      const panelist = interview.panelists[answered % interview.panelists.length] ?? "maya";
-      return delay({ reply: nextQuestion, panelist, done: answered >= interview.questions.length, tone: "neutral" });
+    const interviews = mockInterviews();
+    const interview = interviews.find((i) => i.id === id);
+    if (!interview) {
+      throw Object.assign(new Error("Mock interview not found."), { status: 404 });
     }
-    return delay({ reply: "Session not found.", panelist: "maya", done: true });
+    if (interview.status !== "active") {
+      throw Object.assign(new Error("This interview has already ended."), { status: 400 });
+    }
+    const answered = interview.messages.filter((m) => m.role === "user").length;
+    const nextQuestion =
+      interview.questions[answered] ??
+      "All the questions we planned are covered. Is there anything you would like to ask us before we wrap up?";
+    const panelist = sanitizePanelSelection(interview.panelists).includes("atlas")
+      ? "atlas"
+      : sanitizePanelSelection(interview.panelists)[0]!;
+    const reply = `Welcome back. Take a breath, settle in, and we'll pick up where we left off. ${nextQuestion}`;
+    interview.messages.push({
+      id: interview.messages.length + 1,
+      role: "assistant",
+      panelist,
+      tone: "warm",
+      content: reply,
+      created_at: nowIso(),
+    });
+    interview.message_count = interview.messages.length;
+    interview.updated_at = nowIso();
+    saveInterviews(interviews);
+    return delay({ reply, panelist, done: false, tone: "neutral" }) as T;
   }
   if (/^\/interview\/([^/]+)\/analysis\/$/.test(p) && method === "GET") {
     const id = p.match(/^\/interview\/([^/]+)\/analysis\/$/)?.[1] ?? "";
@@ -1898,8 +2275,8 @@ export async function sandboxApiFetch<T = unknown>(
     const interviews = mockInterviews();
     const interview = interviews.find((i) => i.id === id);
     if (interview) {
-      if (body.status === "completed") interview.status = "completed";
-      if (body.suspection === true) interview.suspection = Math.min(100, interview.suspection + 25);
+      if (body["status"] === "completed") finalizeMockInterview(interview);
+      if (body["suspection"] === true) interview.suspection = Math.min(100, interview.suspection + 25);
       interview.updated_at = nowIso();
       saveInterviews(interviews);
       return delay({ interview }) as T;
@@ -2011,6 +2388,216 @@ export async function sandboxApiFetch<T = unknown>(
   if (/^\/gd\/([^/]+)\/$/.test(p) && method === "GET") {
     const id = p.match(/^\/gd\/([^/]+)\/$/)?.[1] ?? "";
     return delay({ session: readJson<GdTrainingRecord[]>(GD_KEY, []).find((x) => x.id === id) }) as T;
+  }
+
+  // Coding assessment
+  if (p === "/coding-assessment/start/" && method === "POST") {
+    const language = typeof body.category === "string" ? body.category : "python";
+    const cat = CODING_BANKS[language] ? language : "python";
+    const q = pickCodingQuestion(cat);
+    const session: CodingAssessmentSession = {
+      id: uid("coding"),
+      title: q.question.slice(0, 60),
+      category: cat as CodingAssessmentSession["category"],
+      category_label: CODING_LANGUAGE_LABELS[cat] ?? cat,
+      question: q.question,
+      answer: q.answer,
+      solution: q.solution,
+      status: "active",
+      attempts: 0,
+      hints_used: 0,
+      points_awarded: 0,
+      star_rating: 0,
+      solved_at: null,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+      transcript: [],
+    };
+    const sessions = codingSessions();
+    sessions.unshift(session);
+    saveCodingSessions(sessions);
+    return delay({
+      session,
+      message: `Question ${sessions.length} — ${q.question}`,
+    }) as T;
+  }
+  if (p === "/coding-assessment/chat/" && method === "POST") {
+    const sessions = codingSessions();
+    const session = sessions.find((s) => s.id === String(body.session_id ?? ""));
+    if (!session)
+      return delay({
+        session_id: "",
+        reply: "Session not found.",
+        solved: false,
+        gave_up: false,
+        closed: false,
+        points_awarded: 0,
+        star_rating: 0,
+      }) as T;
+    const message = String(body.message ?? "");
+    const normalized = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    session.transcript ??= [];
+    if (session.status !== "active") {
+      return delay({
+        session_id: session.id,
+        reply:
+          session.status === "solved"
+            ? `You already solved this one. Expected answer: ${session.answer}`
+            : `This question was skipped. Expected answer: ${session.answer}. ${session.solution}`,
+        solved: session.status === "solved",
+        gave_up: session.status === "gave_up",
+        closed: true,
+        points_awarded: session.points_awarded,
+        star_rating: session.star_rating,
+      }) as T;
+    }
+    session.attempts += 1;
+    session.transcript.push({ role: "user", content: message, created_at: nowIso() });
+    let reply: string;
+    let solved = false;
+    let gaveUp = false;
+    let points = 0;
+    let stars = 0;
+    if (/\b(give up|skip|i don't know|i dont know|no idea)\b/.test(normalized)) {
+      gaveUp = true;
+      session.status = "gave_up";
+      reply = `No problem — the expected answer: ${session.answer}. ${session.solution}`;
+    } else if (
+      session.attempts >= 3 ||
+      (normalized.length > 2 && normalized.includes(session.answer.toLowerCase()))
+    ) {
+      solved = true;
+      points = 100;
+      stars = 4;
+      session.status = "solved";
+      session.points_awarded = points;
+      session.star_rating = stars;
+      session.solved_at = nowIso();
+      reply = `Nice work! Expected answer: ${session.answer}. ${session.solution}`;
+    } else {
+      const hints = [
+        "Hint: think about the time complexity and the simplest data structure that fits.",
+        `You're on attempt ${session.attempts}/3. Try naming the technique or the key operation.`,
+        "Hint: describe the steps in plain words before writing any code.",
+      ];
+      reply = hints[Math.min(session.attempts - 1, hints.length - 1)]!;
+      session.hints_used += 1;
+    }
+    session.transcript.push({ role: "assistant", content: reply, created_at: nowIso() });
+    session.updated_at = nowIso();
+    saveCodingSessions(sessions);
+    return delay({
+      session_id: session.id,
+      reply,
+      solved,
+      gave_up: gaveUp,
+      closed: solved || gaveUp,
+      points_awarded: points,
+      star_rating: stars,
+    }) as T;
+  }
+  if (p === "/coding-assessment/skip/" && method === "POST") {
+    const sessions = codingSessions();
+    const id = typeof body.session_id === "string" ? body.session_id : null;
+    const target = id ? sessions.find((s) => s.id === id) : sessions.find((s) => s.status === "active");
+    if (target && target.status === "active") {
+      target.status = "gave_up";
+      target.updated_at = nowIso();
+      saveCodingSessions(sessions);
+      return delay({ ok: true, skipped: target.id, was_active: true }) as T;
+    }
+    return delay({ ok: true, skipped: target?.id ?? "0", was_active: false }) as T;
+  }
+  if (p.startsWith("/coding-assessment/history/") && method === "GET")
+    return delay(codingHistory(p)) as T;
+  if (/^\/coding-assessment\/([^/]+)\/$/.test(p) && method === "GET") {
+    const id = p.match(/^\/coding-assessment\/([^/]+)\/$/)?.[1] ?? "";
+    return delay({ session: codingSessions().find((s) => s.id === id) }) as T;
+  }
+
+  // Reading comprehension
+  if (p === "/reading-comprehension/start/" && method === "POST") {
+    const passage = pickReadingPassage();
+    const session: ReadingComprehensionSession = {
+      id: uid("reading"),
+      title: passage.title,
+      category: passage.category,
+      passage: passage.passage,
+      vocab: passage.vocab,
+      questions: passage.questions,
+      answers: [],
+      correct_count: 0,
+      status: "active",
+      points_awarded: 0,
+      star_rating: 0,
+      solved_at: null,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+    };
+    const sessions = readingSessions();
+    sessions.unshift(session);
+    saveReadingSessions(sessions);
+    return delay({
+      session,
+      message: `Passage ${sessions.length} — ${passage.title}`,
+    }) as T;
+  }
+  if (p === "/reading-comprehension/submit/" && method === "POST") {
+    const sessions = readingSessions();
+    const session = sessions.find((s) => s.id === String(body.session_id ?? ""));
+    if (!session)
+      return delay({
+        session: null,
+        correct: 0,
+        total: 0,
+        points_awarded: 0,
+        star_rating: 0,
+      }) as T;
+    const raw = Array.isArray(body.answers) ? body.answers : [];
+    const answers = session.questions.map((_, i) => {
+      const value = Number(raw[i]);
+      return Number.isInteger(value) ? value : -1;
+    });
+    const correct = session.questions.reduce(
+      (sum, q, i) => sum + (answers[i] === q.answer_index ? 1 : 0),
+      0,
+    );
+    const total = session.questions.length;
+    const points = correct * 20;
+    const stars = Math.min(5, correct);
+    session.answers = answers;
+    session.correct_count = correct;
+    session.status = "solved";
+    session.points_awarded = points;
+    session.star_rating = stars;
+    session.solved_at = nowIso();
+    session.updated_at = nowIso();
+    saveReadingSessions(sessions);
+    return delay({
+      session,
+      correct,
+      total,
+      points_awarded: points,
+      star_rating: stars,
+    }) as T;
+  }
+  if (p === "/reading-comprehension/skip/" && method === "POST") {
+    const sessions = readingSessions();
+    const id = typeof body.session_id === "string" ? body.session_id : null;
+    const target = id ? sessions.find((s) => s.id === id) : sessions.find((s) => s.status === "active");
+    if (target && target.status === "active") {
+      target.status = "gave_up";
+      target.updated_at = nowIso();
+      saveReadingSessions(sessions);
+      return delay({ skipped: [target.id] }) as T;
+    }
+    return delay({ skipped: [] }) as T;
+  }
+  if (p.startsWith("/reading-comprehension/history/") && method === "GET")
+    return delay(readingHistory(p)) as T;
+  if (/^\/reading-comprehension\/([^/]+)\/$/.test(p) && method === "GET") {
+    const id = p.match(/^\/reading-comprehension\/([^/]+)\/$/)?.[1] ?? "";
+    return delay({ session: readingSessions().find((s) => s.id === id) }) as T;
   }
 
   // Question modules

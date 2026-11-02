@@ -15,10 +15,12 @@ import { Route as BasicMathTrainingRouteImport } from './routes/basic-math-train
 import { Route as CandidateProfileRouteImport } from './routes/candidate-profile'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as ClientProfileRouteImport } from './routes/client-profile'
+import { Route as CodingAssessmentRouteImport } from './routes/coding-assessment'
 import { Route as CommunicationTrainingRouteImport } from './routes/communication-training'
 import { Route as CommunicationTrainingHistoryRouteImport } from './routes/communication-training-history'
 import { Route as CommunicationTrainingTipsRouteImport } from './routes/communication-training-tips'
 import { Route as CompaniesRouteImport } from './routes/companies'
+import { Route as CompanyDrivesRouteImport } from './routes/company-drives'
 import { Route as CopilotRouteImport } from './routes/copilot'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DiscussionForumRouteImport } from './routes/discussion-forum'
@@ -37,6 +39,7 @@ import { Route as MockInterviewRouteImport } from './routes/mock-interview'
 import { Route as MockInterviewHistoryRouteImport } from './routes/mock-interview-history'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PlacementCellRouteImport } from './routes/placement-cell'
+import { Route as ReadingComprehensionRouteImport } from './routes/reading-comprehension'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as RoadmapDrillRouteImport } from './routes/roadmap-drill'
 import { Route as SelfTrainingRouteImport } from './routes/self-training'
@@ -46,6 +49,7 @@ import { Route as StudentsRouteImport } from './routes/students'
 import { Route as TechnicalTrainingRouteImport } from './routes/technical-training'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as CommunicationTrainingReportSessionIdRouteImport } from './routes/communication-training-report.$sessionId'
+import { Route as CompanyDrivesCompanyIdRouteImport } from './routes/company-drives_.$companyId'
 import { Route as EnglishTrainingReportSessionIdRouteImport } from './routes/english-training-report.$sessionId'
 import { Route as GdReportGdIdRouteImport } from './routes/gd-report.$gdId'
 import { Route as InterviewAnalysisInterviewIdRouteImport } from './routes/interview-analysis.$interviewId'
@@ -82,6 +86,11 @@ const ClientProfileRoute = ClientProfileRouteImport.update({
   path: '/client-profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CodingAssessmentRoute = CodingAssessmentRouteImport.update({
+  id: '/coding-assessment',
+  path: '/coding-assessment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CommunicationTrainingRoute = CommunicationTrainingRouteImport.update({
   id: '/communication-training',
   path: '/communication-training',
@@ -102,6 +111,11 @@ const CommunicationTrainingTipsRoute =
 const CompaniesRoute = CompaniesRouteImport.update({
   id: '/companies',
   path: '/companies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompanyDrivesRoute = CompanyDrivesRouteImport.update({
+  id: '/company-drives',
+  path: '/company-drives',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CopilotRoute = CopilotRouteImport.update({
@@ -194,6 +208,11 @@ const PlacementCellRoute = PlacementCellRouteImport.update({
   path: '/placement-cell',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReadingComprehensionRoute = ReadingComprehensionRouteImport.update({
+  id: '/reading-comprehension',
+  path: '/reading-comprehension',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -240,6 +259,11 @@ const CommunicationTrainingReportSessionIdRoute =
     path: '/communication-training-report/$sessionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const CompanyDrivesCompanyIdRoute = CompanyDrivesCompanyIdRouteImport.update({
+  id: '/company-drives_/$companyId',
+  path: '/company-drives/$companyId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EnglishTrainingReportSessionIdRoute =
   EnglishTrainingReportSessionIdRouteImport.update({
     id: '/english-training-report/$sessionId',
@@ -276,10 +300,12 @@ export interface FileRoutesByFullPath {
   '/candidate-profile': typeof CandidateProfileRoute
   '/chat': typeof ChatRoute
   '/client-profile': typeof ClientProfileRoute
+  '/coding-assessment': typeof CodingAssessmentRoute
   '/communication-training': typeof CommunicationTrainingRoute
   '/communication-training-history': typeof CommunicationTrainingHistoryRoute
   '/communication-training-tips': typeof CommunicationTrainingTipsRoute
   '/companies': typeof CompaniesRoute
+  '/company-drives': typeof CompanyDrivesRoute
   '/copilot': typeof CopilotRoute
   '/dashboard': typeof DashboardRoute
   '/discussion-forum': typeof DiscussionForumRoute
@@ -298,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/mock-interview-history': typeof MockInterviewHistoryRoute
   '/notifications': typeof NotificationsRoute
   '/placement-cell': typeof PlacementCellRoute
+  '/reading-comprehension': typeof ReadingComprehensionRoute
   '/reports': typeof ReportsRoute
   '/roadmap-drill': typeof RoadmapDrillRoute
   '/self-training': typeof SelfTrainingRoute
@@ -307,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/technical-training': typeof TechnicalTrainingRoute
   '/tutorials': typeof TutorialsRoute
   '/communication-training-report/$sessionId': typeof CommunicationTrainingReportSessionIdRoute
+  '/company-drives/$companyId': typeof CompanyDrivesCompanyIdRoute
   '/english-training-report/$sessionId': typeof EnglishTrainingReportSessionIdRoute
   '/gd-report/$gdId': typeof GdReportGdIdRoute
   '/interview-analysis/$interviewId': typeof InterviewAnalysisInterviewIdRoute
@@ -320,10 +348,12 @@ export interface FileRoutesByTo {
   '/candidate-profile': typeof CandidateProfileRoute
   '/chat': typeof ChatRoute
   '/client-profile': typeof ClientProfileRoute
+  '/coding-assessment': typeof CodingAssessmentRoute
   '/communication-training': typeof CommunicationTrainingRoute
   '/communication-training-history': typeof CommunicationTrainingHistoryRoute
   '/communication-training-tips': typeof CommunicationTrainingTipsRoute
   '/companies': typeof CompaniesRoute
+  '/company-drives': typeof CompanyDrivesRoute
   '/copilot': typeof CopilotRoute
   '/dashboard': typeof DashboardRoute
   '/discussion-forum': typeof DiscussionForumRoute
@@ -342,6 +372,7 @@ export interface FileRoutesByTo {
   '/mock-interview-history': typeof MockInterviewHistoryRoute
   '/notifications': typeof NotificationsRoute
   '/placement-cell': typeof PlacementCellRoute
+  '/reading-comprehension': typeof ReadingComprehensionRoute
   '/reports': typeof ReportsRoute
   '/roadmap-drill': typeof RoadmapDrillRoute
   '/self-training': typeof SelfTrainingRoute
@@ -351,6 +382,7 @@ export interface FileRoutesByTo {
   '/technical-training': typeof TechnicalTrainingRoute
   '/tutorials': typeof TutorialsRoute
   '/communication-training-report/$sessionId': typeof CommunicationTrainingReportSessionIdRoute
+  '/company-drives/$companyId': typeof CompanyDrivesCompanyIdRoute
   '/english-training-report/$sessionId': typeof EnglishTrainingReportSessionIdRoute
   '/gd-report/$gdId': typeof GdReportGdIdRoute
   '/interview-analysis/$interviewId': typeof InterviewAnalysisInterviewIdRoute
@@ -365,10 +397,12 @@ export interface FileRoutesById {
   '/candidate-profile': typeof CandidateProfileRoute
   '/chat': typeof ChatRoute
   '/client-profile': typeof ClientProfileRoute
+  '/coding-assessment': typeof CodingAssessmentRoute
   '/communication-training': typeof CommunicationTrainingRoute
   '/communication-training-history': typeof CommunicationTrainingHistoryRoute
   '/communication-training-tips': typeof CommunicationTrainingTipsRoute
   '/companies': typeof CompaniesRoute
+  '/company-drives': typeof CompanyDrivesRoute
   '/copilot': typeof CopilotRoute
   '/dashboard': typeof DashboardRoute
   '/discussion-forum': typeof DiscussionForumRoute
@@ -387,6 +421,7 @@ export interface FileRoutesById {
   '/mock-interview-history': typeof MockInterviewHistoryRoute
   '/notifications': typeof NotificationsRoute
   '/placement-cell': typeof PlacementCellRoute
+  '/reading-comprehension': typeof ReadingComprehensionRoute
   '/reports': typeof ReportsRoute
   '/roadmap-drill': typeof RoadmapDrillRoute
   '/self-training': typeof SelfTrainingRoute
@@ -396,6 +431,7 @@ export interface FileRoutesById {
   '/technical-training': typeof TechnicalTrainingRoute
   '/tutorials': typeof TutorialsRoute
   '/communication-training-report/$sessionId': typeof CommunicationTrainingReportSessionIdRoute
+  '/company-drives_/$companyId': typeof CompanyDrivesCompanyIdRoute
   '/english-training-report/$sessionId': typeof EnglishTrainingReportSessionIdRoute
   '/gd-report/$gdId': typeof GdReportGdIdRoute
   '/interview-analysis/$interviewId': typeof InterviewAnalysisInterviewIdRoute
@@ -411,10 +447,12 @@ export interface FileRouteTypes {
     | '/candidate-profile'
     | '/chat'
     | '/client-profile'
+    | '/coding-assessment'
     | '/communication-training'
     | '/communication-training-history'
     | '/communication-training-tips'
     | '/companies'
+    | '/company-drives'
     | '/copilot'
     | '/dashboard'
     | '/discussion-forum'
@@ -433,6 +471,7 @@ export interface FileRouteTypes {
     | '/mock-interview-history'
     | '/notifications'
     | '/placement-cell'
+    | '/reading-comprehension'
     | '/reports'
     | '/roadmap-drill'
     | '/self-training'
@@ -442,6 +481,7 @@ export interface FileRouteTypes {
     | '/technical-training'
     | '/tutorials'
     | '/communication-training-report/$sessionId'
+    | '/company-drives/$companyId'
     | '/english-training-report/$sessionId'
     | '/gd-report/$gdId'
     | '/interview-analysis/$interviewId'
@@ -455,10 +495,12 @@ export interface FileRouteTypes {
     | '/candidate-profile'
     | '/chat'
     | '/client-profile'
+    | '/coding-assessment'
     | '/communication-training'
     | '/communication-training-history'
     | '/communication-training-tips'
     | '/companies'
+    | '/company-drives'
     | '/copilot'
     | '/dashboard'
     | '/discussion-forum'
@@ -477,6 +519,7 @@ export interface FileRouteTypes {
     | '/mock-interview-history'
     | '/notifications'
     | '/placement-cell'
+    | '/reading-comprehension'
     | '/reports'
     | '/roadmap-drill'
     | '/self-training'
@@ -486,6 +529,7 @@ export interface FileRouteTypes {
     | '/technical-training'
     | '/tutorials'
     | '/communication-training-report/$sessionId'
+    | '/company-drives/$companyId'
     | '/english-training-report/$sessionId'
     | '/gd-report/$gdId'
     | '/interview-analysis/$interviewId'
@@ -499,10 +543,12 @@ export interface FileRouteTypes {
     | '/candidate-profile'
     | '/chat'
     | '/client-profile'
+    | '/coding-assessment'
     | '/communication-training'
     | '/communication-training-history'
     | '/communication-training-tips'
     | '/companies'
+    | '/company-drives'
     | '/copilot'
     | '/dashboard'
     | '/discussion-forum'
@@ -521,6 +567,7 @@ export interface FileRouteTypes {
     | '/mock-interview-history'
     | '/notifications'
     | '/placement-cell'
+    | '/reading-comprehension'
     | '/reports'
     | '/roadmap-drill'
     | '/self-training'
@@ -530,6 +577,7 @@ export interface FileRouteTypes {
     | '/technical-training'
     | '/tutorials'
     | '/communication-training-report/$sessionId'
+    | '/company-drives_/$companyId'
     | '/english-training-report/$sessionId'
     | '/gd-report/$gdId'
     | '/interview-analysis/$interviewId'
@@ -544,10 +592,12 @@ export interface RootRouteChildren {
   CandidateProfileRoute: typeof CandidateProfileRoute
   ChatRoute: typeof ChatRoute
   ClientProfileRoute: typeof ClientProfileRoute
+  CodingAssessmentRoute: typeof CodingAssessmentRoute
   CommunicationTrainingRoute: typeof CommunicationTrainingRoute
   CommunicationTrainingHistoryRoute: typeof CommunicationTrainingHistoryRoute
   CommunicationTrainingTipsRoute: typeof CommunicationTrainingTipsRoute
   CompaniesRoute: typeof CompaniesRoute
+  CompanyDrivesRoute: typeof CompanyDrivesRoute
   CopilotRoute: typeof CopilotRoute
   DashboardRoute: typeof DashboardRoute
   DiscussionForumRoute: typeof DiscussionForumRoute
@@ -566,6 +616,7 @@ export interface RootRouteChildren {
   MockInterviewHistoryRoute: typeof MockInterviewHistoryRoute
   NotificationsRoute: typeof NotificationsRoute
   PlacementCellRoute: typeof PlacementCellRoute
+  ReadingComprehensionRoute: typeof ReadingComprehensionRoute
   ReportsRoute: typeof ReportsRoute
   RoadmapDrillRoute: typeof RoadmapDrillRoute
   SelfTrainingRoute: typeof SelfTrainingRoute
@@ -575,6 +626,7 @@ export interface RootRouteChildren {
   TechnicalTrainingRoute: typeof TechnicalTrainingRoute
   TutorialsRoute: typeof TutorialsRoute
   CommunicationTrainingReportSessionIdRoute: typeof CommunicationTrainingReportSessionIdRoute
+  CompanyDrivesCompanyIdRoute: typeof CompanyDrivesCompanyIdRoute
   EnglishTrainingReportSessionIdRoute: typeof EnglishTrainingReportSessionIdRoute
   GdReportGdIdRoute: typeof GdReportGdIdRoute
   InterviewAnalysisInterviewIdRoute: typeof InterviewAnalysisInterviewIdRoute
@@ -626,6 +678,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/coding-assessment': {
+      id: '/coding-assessment'
+      path: '/coding-assessment'
+      fullPath: '/coding-assessment'
+      preLoaderRoute: typeof CodingAssessmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/communication-training': {
       id: '/communication-training'
       path: '/communication-training'
@@ -652,6 +711,13 @@ declare module '@tanstack/react-router' {
       path: '/companies'
       fullPath: '/companies'
       preLoaderRoute: typeof CompaniesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/company-drives': {
+      id: '/company-drives'
+      path: '/company-drives'
+      fullPath: '/company-drives'
+      preLoaderRoute: typeof CompanyDrivesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/copilot': {
@@ -780,6 +846,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlacementCellRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reading-comprehension': {
+      id: '/reading-comprehension'
+      path: '/reading-comprehension'
+      fullPath: '/reading-comprehension'
+      preLoaderRoute: typeof ReadingComprehensionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports': {
       id: '/reports'
       path: '/reports'
@@ -843,6 +916,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunicationTrainingReportSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/company-drives_/$companyId': {
+      id: '/company-drives_/$companyId'
+      path: '/company-drives/$companyId'
+      fullPath: '/company-drives/$companyId'
+      preLoaderRoute: typeof CompanyDrivesCompanyIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/english-training-report/$sessionId': {
       id: '/english-training-report/$sessionId'
       path: '/english-training-report/$sessionId'
@@ -888,10 +968,12 @@ const rootRouteChildren: RootRouteChildren = {
   CandidateProfileRoute: CandidateProfileRoute,
   ChatRoute: ChatRoute,
   ClientProfileRoute: ClientProfileRoute,
+  CodingAssessmentRoute: CodingAssessmentRoute,
   CommunicationTrainingRoute: CommunicationTrainingRoute,
   CommunicationTrainingHistoryRoute: CommunicationTrainingHistoryRoute,
   CommunicationTrainingTipsRoute: CommunicationTrainingTipsRoute,
   CompaniesRoute: CompaniesRoute,
+  CompanyDrivesRoute: CompanyDrivesRoute,
   CopilotRoute: CopilotRoute,
   DashboardRoute: DashboardRoute,
   DiscussionForumRoute: DiscussionForumRoute,
@@ -910,6 +992,7 @@ const rootRouteChildren: RootRouteChildren = {
   MockInterviewHistoryRoute: MockInterviewHistoryRoute,
   NotificationsRoute: NotificationsRoute,
   PlacementCellRoute: PlacementCellRoute,
+  ReadingComprehensionRoute: ReadingComprehensionRoute,
   ReportsRoute: ReportsRoute,
   RoadmapDrillRoute: RoadmapDrillRoute,
   SelfTrainingRoute: SelfTrainingRoute,
@@ -920,6 +1003,7 @@ const rootRouteChildren: RootRouteChildren = {
   TutorialsRoute: TutorialsRoute,
   CommunicationTrainingReportSessionIdRoute:
     CommunicationTrainingReportSessionIdRoute,
+  CompanyDrivesCompanyIdRoute: CompanyDrivesCompanyIdRoute,
   EnglishTrainingReportSessionIdRoute: EnglishTrainingReportSessionIdRoute,
   GdReportGdIdRoute: GdReportGdIdRoute,
   InterviewAnalysisInterviewIdRoute: InterviewAnalysisInterviewIdRoute,

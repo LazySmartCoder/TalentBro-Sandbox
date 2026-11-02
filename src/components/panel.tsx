@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { AudioLines, Loader2, Mic } from "lucide-react";
+import { AudioLines, Loader2, Menu, Mic } from "lucide-react";
 import { GridField } from "@/components/graphics";
+import { cn } from "@/lib/utils";
 import { ProctorCamera } from "@/components/proctor-camera";
 import { usePanelVoice, type PanelVoiceControls } from "@/lib/panel-voice";
 import { panelistPhoto } from "@/lib/panelists";
+import type { TtsVoiceStyle } from "@/lib/api";
 
 type Member = {
   id: string;
@@ -77,12 +79,14 @@ const members: Member[] = [
 const byId = (id: string) => members.find((m) => m.id === id) ?? members[members.length - 1]!;
 
 // Every panelist speaks Indian English on Edge TTS — Atlas (the host) included
-// — so the whole panel carries one familiar accent for the candidate. Each
-// short-name is verified in the backend gender map; the only male/female
-// Indian voices this Edge endpoint actually serves are en-IN-PrabhatNeural and
-// the "neerja" family, so the panel maps directly to those (no American or
-// British accents, and no wasted retries on unavailable voices). Maya keeps
-// the same warm "neerja" voice she uses in Communication Training.
+// — so the whole panel carries one familiar accent for the candidate. Edge only
+// serves three usable Indian voices (verified against the live endpoint:
+// en-IN-PrabhatNeural plus the en-IN-Neerja pair), which would leave the five
+// male panelists sharing one identical voice. So the panelists are separated by
+// per-speaker pitch/rate offsets instead: each member lands on a measurably
+// different delivery of the same familiar Indian accent, rather than
+// scattering the panel across American/British voices. Maya keeps the same warm
+// "neerja" voice she uses in Communication Training.
 const PANELIST_EDGE_VOICE: Record<string, string> = {
   albert: "en-IN-PrabhatNeural", // Indian male
   peter: "en-IN-PrabhatNeural", // Indian male
@@ -91,6 +95,19 @@ const PANELIST_EDGE_VOICE: Record<string, string> = {
   atlas: "en-IN-PrabhatNeural", // Indian male host
   maya: "neerja", // en-IN female — same as the comm coach
   ada: "neerja", // en-IN female
+};
+
+// Distinct delivery per panelist. Offsets are small enough to stay natural but
+// far enough apart to be recognised: a deeper, slower Albert; a brighter, brisker
+// Daniel; a light, careful Ada. Atlas sits near-neutral as the host.
+const PANELIST_VOICE_STYLE: Record<string, TtsVoiceStyle> = {
+  albert: { pitchHz: -20, ratePct: -4 },
+  peter: { pitchHz: -6, ratePct: 2 },
+  daniel: { pitchHz: -12, ratePct: 7 },
+  carl: { pitchHz: 4, ratePct: -2 },
+  atlas: { pitchHz: -8, ratePct: 0 },
+  maya: { pitchHz: 6, ratePct: 0 },
+  ada: { pitchHz: -4, ratePct: -3 },
 };
 
 const PANELIST_GENDER: Record<string, "male" | "female"> = {
@@ -112,6 +129,10 @@ const ICE_BREAK_MS = 400;
 
 export function panelistEdgeVoice(speaker: string): string {
   return PANELIST_EDGE_VOICE[speaker] ?? DEFAULT_EDGE_VOICE;
+}
+
+export function panelistVoiceStyle(speaker: string): TtsVoiceStyle {
+  return PANELIST_VOICE_STYLE[speaker] ?? {};
 }
 
 // Browser-voice fallback for each panelist's gender, so a slow/unavailable
@@ -281,7 +302,9 @@ function MessageText({
   return (
     <>
       {text.split(/(\s+)/).map((part, i) => {
-        if (/^\s+$/.test(part)) return <span key={i}>{part}</span>;
+        // An empty part (leading/trailing whitespace) is not a word; counting
+        // it would shift every highlight by one against the spoken index.
+        if (part === "" || /^\s+$/.test(part)) return <span key={i}>{part}</span>;
         ord += 1;
         return (
           <span
@@ -335,7 +358,6 @@ export function PanelRoom({
   onViolation?: (() => void) | undefined;
   onSend?: (text: string) => void;
   onExit?: () => void;
-  onLockViolation?: () => void;
   onViewAnalysis?: () => void;
   durationMinutes?: number | undefined;
   startedAt?: string | undefined;
@@ -349,6 +371,9 @@ export function PanelRoom({
   // True for the first ICE_BREAK_MS of a mounted room: the mic stays closed and
   // nothing speaks, so a fresh session settles before the panel opens.
   const [iceBreak, setIceBreak] = useState(true);
+  // On phones/tablets the channel rail is an off-canvas drawer toggled by the
+  // header's hamburger; from `md` up it is the permanent column and this is moot.
+  const [railOpen, setRailOpen] = useState(false);
 
   const startedMs = startedAt ? new Date(startedAt).getTime() : 0;
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -387,6 +412,7 @@ export function PanelRoom({
   const voice = usePanelVoice({
     enabled: !done && !paused && channel === "live-interview" && !iceBreak,
     edgeVoiceFor: panelistEdgeVoice,
+    voiceStyleFor: panelistVoiceStyle,
     browserVoiceFor: panelistBrowserVoice,
     onTranscript: (text) => onSend?.(text),
   });
@@ -453,9 +479,13 @@ export function PanelRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // New panelist lines are spoken as they arrive, in queue order.
+  // New panelist lines are spoken as they arrive, in queue order. This
+  // deliberately does NOT check `done`: the closing/ender line is appended in
+  // the same state batch that flips `done` to true, so guarding on it here
+  // silenced exactly the last thing the panel had to say. Speaking is not
+  // gated on `done` — only the mic re-arm is, via `enabled`.
   useEffect(() => {
-    if (done || channel !== "live-interview") return;
+    if (channel !== "live-interview") return;
     for (const m of messages) {
       if (spokenRef.current.has(m.id)) continue;
       spokenRef.current.add(m.id);
@@ -464,7 +494,7 @@ export function PanelRoom({
       voice.speak(m.text, m.from, m.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, channel, done]);
+  }, [messages, channel]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -489,13 +519,41 @@ export function PanelRoom({
   }, [draft]);
 
   return (
-    <main className="tg-grain relative flex h-screen overflow-hidden bg-background text-foreground">
+    <main className="tg-grain relative flex h-dvh overflow-hidden bg-background text-foreground">
       <GridField className="pointer-events-none absolute inset-0 z-0 opacity-30" />
 
+      {railOpen && (
+        <button
+          type="button"
+          aria-label="Close panel menu"
+          onClick={() => setRailOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+        />
+      )}
+
       {/* rail / channels */}
-      <aside className="relative z-10 hidden w-60 shrink-0 flex-col border-r border-border md:flex">
+      <aside
+        className={cn(
+          "z-50 w-60 shrink-0 flex-col border-r border-border bg-background transition-transform",
+          "fixed inset-y-0 left-0 shadow-2xl",
+          railOpen ? "flex translate-x-0" : "hidden -translate-x-full",
+          "md:relative md:inset-auto md:z-10 md:flex md:translate-x-0 md:bg-transparent md:shadow-none",
+        )}
+      >
         <div className="border-b border-border px-5 py-4">
-          <p className="truncate font-[family-name:var(--font-display)] text-xl">{context}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate font-[family-name:var(--font-display)] text-xl">{context}</p>
+            <button
+              type="button"
+              aria-label="Close panel menu"
+              onClick={() => setRailOpen(false)}
+              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+            >
+              <span aria-hidden className="text-lg leading-none">
+                ×
+              </span>
+            </button>
+          </div>
           <p className="mt-1 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
             Panel room
           </p>
@@ -512,7 +570,10 @@ export function PanelRoom({
             ].map(([id, label]) => (
               <li key={id}>
                 <button
-                  onClick={() => setChannel(id as typeof channel)}
+                  onClick={() => {
+                    setChannel(id as typeof channel);
+                    setRailOpen(false);
+                  }}
                   className={`w-full rounded px-2 py-1.5 text-left transition-colors ${
                     channel === id
                       ? "bg-foreground text-background"
@@ -556,13 +617,24 @@ export function PanelRoom({
       {/* conversation */}
       <section className="relative z-10 flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-          <div className="min-w-0">
-            <h1 className="truncate text-sm">
-              <span className="opacity-50">#</span> {channel}
-            </h1>
-            <p className="truncate text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              {context} · {channel === "role-brief" ? "panel introductions" : "panel in session"}
-            </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              aria-label="Open panel menu"
+              aria-expanded={railOpen}
+              onClick={() => setRailOpen(true)}
+              className="grid size-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:border-foreground hover:text-foreground md:hidden"
+            >
+              <Menu className="size-4" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="truncate text-sm">
+                <span className="opacity-50">#</span> {channel}
+              </h1>
+              <p className="truncate text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                {context} · {channel === "role-brief" ? "panel introductions" : "panel in session"}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden items-center gap-2 rounded-full border border-border px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:inline-flex">
@@ -837,6 +909,48 @@ function PanelVoiceComposer({
   const speaker = voice.speaking ? byId(voice.speaking) : null;
   const liveText = [voice.captured, voice.interim].filter(Boolean).join(" ");
 
+  // The live caption is one line wide, so a long answer used to be cut off by
+  // `truncate`. Instead we glide the pill to the tail of the text on every
+  // interim update, which keeps the newest words — the ones being spoken right
+  // now — in view. The tween is retargetable from the current scroll position so
+  // the ~100ms interim cadence reads as one continuous creep.
+  const liveRef = useRef<HTMLDivElement>(null);
+  const liveRaf = useRef(0);
+
+  useEffect(() => {
+    const node = liveRef.current;
+    if (liveRaf.current) cancelAnimationFrame(liveRaf.current);
+    if (!node) return;
+
+    const settle = (left: number) => {
+      liveRaf.current = 0;
+      node.scrollLeft = left;
+    };
+
+    const max = node.scrollWidth - node.clientWidth;
+    if (!liveText || max <= 0) {
+      settle(0);
+      return;
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      settle(max);
+      return;
+    }
+
+    const from = node.scrollLeft;
+    const started = performance.now();
+    const run = (now: number) => {
+      const progress = Math.min((now - started) / 220, 1);
+      node.scrollLeft = from + (max - from) * (1 - Math.pow(1 - progress, 3));
+      if (progress < 1) liveRaf.current = requestAnimationFrame(run);
+      else liveRaf.current = 0;
+    };
+    liveRaf.current = requestAnimationFrame(run);
+  }, [liveText]);
+
+  useEffect(() => () => cancelAnimationFrame(liveRaf.current), []);
+
   let caption = "";
   if (voice.error) caption = voice.error;
   else if (iceBreak) caption = "Panel is getting ready…";
@@ -848,8 +962,6 @@ function PanelVoiceComposer({
   else if (liveText) caption = "";
   else if (done) caption = "Interview finished.";
   else if (paused) caption = "On a short break…";
-  else if (voice.needMicTap)
-    caption = "Tap the mic once to allow the mic — then listen hands-free.";
   else if (voice.listening) caption = "Listening — answer as soon as the panelist finishes.";
   else caption = "Hands-free — the mic opens automatically.";
 
@@ -859,10 +971,15 @@ function PanelVoiceComposer({
         {voice.error ? (
           <p className="max-w-full truncate text-xs text-red-500">{caption}</p>
         ) : liveText ? (
-          <p className="max-w-md truncate rounded-full border border-border bg-card px-4 py-1.5 text-sm text-foreground">
-            {liveText}
-            <span className="ml-0.5 opacity-60">…</span>
-          </p>
+          <div className="flex max-w-md items-center gap-1 rounded-full border border-border bg-card py-1.5 pl-4 pr-3 text-sm text-foreground">
+            <div
+              ref={liveRef}
+              className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {liveText}
+            </div>
+            <span className="shrink-0 opacity-60">…</span>
+          </div>
         ) : loading ? (
           <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
@@ -911,9 +1028,7 @@ function PanelVoiceComposer({
           className={`pointer-events-auto grid size-12 cursor-pointer place-items-center rounded-full border transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
             voice.listening
               ? "border-foreground bg-foreground text-background shadow-lg"
-              : voice.needMicTap
-                ? "border-foreground bg-foreground text-background shadow-lg"
-                : "border-border bg-background text-muted-foreground hover:bg-foreground hover:text-background"
+              : "border-border bg-background text-muted-foreground hover:bg-foreground hover:text-background"
           }`}
         >
           {loading ? <Loader2 className="size-5 animate-spin" /> : <Mic className="size-5" />}
