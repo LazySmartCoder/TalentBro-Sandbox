@@ -1764,7 +1764,7 @@ function CommunicationTrainingPage() {
   const caption = error || diag || interim || captured;
 
   return (
-    <div className="fixed inset-0 flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--sandbox-banner-height)] flex flex-col overflow-hidden bg-background text-foreground">
       {/* Deco communication environment */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-24 left-1/2 h-80 w-[46rem] -translate-x-1/2 rounded-full bg-sky-500/15 blur-3xl" />

@@ -318,7 +318,7 @@ function EnglishTrainingPage() {
         }
       />
 
-      <main className="mx-auto flex h-[calc(100svh-56px)] w-full max-w-3xl flex-col px-4 py-3 sm:px-6">
+      <main className="mx-auto flex h-[calc(100svh-56px-var(--sandbox-banner-height))] w-full max-w-3xl flex-col px-4 py-3 sm:px-6">
         {/* Coach header */}
         <div className="flex items-center gap-3 rounded-xl border border-amber-400/20 bg-card/60 p-3 shadow-lg shadow-amber-500/5 backdrop-blur">
           <div className="relative shrink-0">

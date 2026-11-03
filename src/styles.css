@@ -591,3 +591,28 @@
   .reveal { opacity: 1; transform: none; }
 }
 
+/*
+ * Global sandbox banner offset.
+ *
+ * The SandboxTopBar rendered in the root shell measures its own height and
+ * writes it to --sandbox-banner-height. Everything that sticks to (or is fixed
+ * against) the top of the viewport has to start below that banner so the page
+ * navbar never hides underneath it. Page roots that occupy a full viewport are
+ * shortened by the same amount so the banner does not introduce a stray scroll.
+ */
+:root {
+  --sandbox-banner-height: 44px;
+}
+
+[class~="min-h-screen"] {
+  min-height: calc(100vh - var(--sandbox-banner-height));
+}
+
+[class~="sticky"][class~="top-0"] {
+  top: var(--sandbox-banner-height);
+}
+
+[class~="fixed"][class~="inset-y-0"] {
+  top: var(--sandbox-banner-height);
+}
+

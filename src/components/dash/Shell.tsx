@@ -256,7 +256,9 @@ export function Shell({
 
         <main
           className={cn(
-            fullBleed ? "h-[calc(100svh-4rem)] overflow-hidden" : "px-4 py-6 sm:px-6 lg:px-8",
+            fullBleed
+              ? "h-[calc(100svh-4rem-var(--sandbox-banner-height))] overflow-hidden"
+              : "px-4 py-6 sm:px-6 lg:px-8",
           )}
         >
           {!fullBleed && (

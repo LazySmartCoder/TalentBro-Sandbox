@@ -34,6 +34,7 @@ import { Route as GdHistoryRouteImport } from './routes/gd-history'
 import { Route as GdRoomRouteImport } from './routes/gd-room'
 import { Route as GdTrainingRouteImport } from './routes/gd-training'
 import { Route as InstituteBillingRouteImport } from './routes/institute-billing'
+import { Route as LaunchTargetsRouteImport } from './routes/launch-targets'
 import { Route as LdTrainingRouteImport } from './routes/ld-training'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as LogoutRouteImport } from './routes/logout'
@@ -47,6 +48,7 @@ import { Route as RoadmapDrillRouteImport } from './routes/roadmap-drill'
 import { Route as SelfTrainingRouteImport } from './routes/self-training'
 import { Route as SituationalTrainingRouteImport } from './routes/situational-training'
 import { Route as StudentRouteImport } from './routes/student'
+import { Route as StudentMessageRouteImport } from './routes/student-message'
 import { Route as StudentsRouteImport } from './routes/students'
 import { Route as TechnicalTrainingRouteImport } from './routes/technical-training'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
@@ -56,7 +58,11 @@ import { Route as EnglishTrainingReportSessionIdRouteImport } from './routes/eng
 import { Route as GdReportGdIdRouteImport } from './routes/gd-report.$gdId'
 import { Route as InterviewAnalysisInterviewIdRouteImport } from './routes/interview-analysis.$interviewId'
 import { Route as MockInterviewTranscriptInterviewIdRouteImport } from './routes/mock-interview-transcript.$interviewId'
+import { Route as StudentActivityStudentIdRouteImport } from './routes/student-activity.$studentId'
+import { Route as StudentDataStudentIdRouteImport } from './routes/student-data.$studentId'
 import { Route as StudentDetailStudentIdRouteImport } from './routes/student-detail.$studentId'
+import { Route as StudentInterviewEvidenceStudentIdInterviewIdRouteImport } from './routes/student-interview-evidence.$studentId.$interviewId'
+import { Route as StudentModuleStudentIdModuleKeyRouteImport } from './routes/student-module.$studentId.$moduleKey'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -185,6 +191,11 @@ const InstituteBillingRoute = InstituteBillingRouteImport.update({
   path: '/institute-billing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LaunchTargetsRoute = LaunchTargetsRouteImport.update({
+  id: '/launch-targets',
+  path: '/launch-targets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LdTrainingRoute = LdTrainingRouteImport.update({
   id: '/ld-training',
   path: '/ld-training',
@@ -250,6 +261,11 @@ const StudentRoute = StudentRouteImport.update({
   path: '/student',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudentMessageRoute = StudentMessageRouteImport.update({
+  id: '/student-message',
+  path: '/student-message',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentsRoute = StudentsRouteImport.update({
   id: '/students',
   path: '/students',
@@ -299,11 +315,34 @@ const MockInterviewTranscriptInterviewIdRoute =
     path: '/mock-interview-transcript/$interviewId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const StudentActivityStudentIdRoute =
+  StudentActivityStudentIdRouteImport.update({
+    id: '/student-activity/$studentId',
+    path: '/student-activity/$studentId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const StudentDataStudentIdRoute = StudentDataStudentIdRouteImport.update({
+  id: '/student-data/$studentId',
+  path: '/student-data/$studentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentDetailStudentIdRoute = StudentDetailStudentIdRouteImport.update({
   id: '/student-detail/$studentId',
   path: '/student-detail/$studentId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudentInterviewEvidenceStudentIdInterviewIdRoute =
+  StudentInterviewEvidenceStudentIdInterviewIdRouteImport.update({
+    id: '/student-interview-evidence/$studentId/$interviewId',
+    path: '/student-interview-evidence/$studentId/$interviewId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const StudentModuleStudentIdModuleKeyRoute =
+  StudentModuleStudentIdModuleKeyRouteImport.update({
+    id: '/student-module/$studentId/$moduleKey',
+    path: '/student-module/$studentId/$moduleKey',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -331,6 +370,7 @@ export interface FileRoutesByFullPath {
   '/gd-room': typeof GdRoomRoute
   '/gd-training': typeof GdTrainingRoute
   '/institute-billing': typeof InstituteBillingRoute
+  '/launch-targets': typeof LaunchTargetsRoute
   '/ld-training': typeof LdTrainingRoute
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
@@ -344,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/self-training': typeof SelfTrainingRoute
   '/situational-training': typeof SituationalTrainingRoute
   '/student': typeof StudentRoute
+  '/student-message': typeof StudentMessageRoute
   '/students': typeof StudentsRoute
   '/technical-training': typeof TechnicalTrainingRoute
   '/tutorials': typeof TutorialsRoute
@@ -353,7 +394,11 @@ export interface FileRoutesByFullPath {
   '/gd-report/$gdId': typeof GdReportGdIdRoute
   '/interview-analysis/$interviewId': typeof InterviewAnalysisInterviewIdRoute
   '/mock-interview-transcript/$interviewId': typeof MockInterviewTranscriptInterviewIdRoute
+  '/student-activity/$studentId': typeof StudentActivityStudentIdRoute
+  '/student-data/$studentId': typeof StudentDataStudentIdRoute
   '/student-detail/$studentId': typeof StudentDetailStudentIdRoute
+  '/student-interview-evidence/$studentId/$interviewId': typeof StudentInterviewEvidenceStudentIdInterviewIdRoute
+  '/student-module/$studentId/$moduleKey': typeof StudentModuleStudentIdModuleKeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -381,6 +426,7 @@ export interface FileRoutesByTo {
   '/gd-room': typeof GdRoomRoute
   '/gd-training': typeof GdTrainingRoute
   '/institute-billing': typeof InstituteBillingRoute
+  '/launch-targets': typeof LaunchTargetsRoute
   '/ld-training': typeof LdTrainingRoute
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
@@ -394,6 +440,7 @@ export interface FileRoutesByTo {
   '/self-training': typeof SelfTrainingRoute
   '/situational-training': typeof SituationalTrainingRoute
   '/student': typeof StudentRoute
+  '/student-message': typeof StudentMessageRoute
   '/students': typeof StudentsRoute
   '/technical-training': typeof TechnicalTrainingRoute
   '/tutorials': typeof TutorialsRoute
@@ -403,7 +450,11 @@ export interface FileRoutesByTo {
   '/gd-report/$gdId': typeof GdReportGdIdRoute
   '/interview-analysis/$interviewId': typeof InterviewAnalysisInterviewIdRoute
   '/mock-interview-transcript/$interviewId': typeof MockInterviewTranscriptInterviewIdRoute
+  '/student-activity/$studentId': typeof StudentActivityStudentIdRoute
+  '/student-data/$studentId': typeof StudentDataStudentIdRoute
   '/student-detail/$studentId': typeof StudentDetailStudentIdRoute
+  '/student-interview-evidence/$studentId/$interviewId': typeof StudentInterviewEvidenceStudentIdInterviewIdRoute
+  '/student-module/$studentId/$moduleKey': typeof StudentModuleStudentIdModuleKeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -432,6 +483,7 @@ export interface FileRoutesById {
   '/gd-room': typeof GdRoomRoute
   '/gd-training': typeof GdTrainingRoute
   '/institute-billing': typeof InstituteBillingRoute
+  '/launch-targets': typeof LaunchTargetsRoute
   '/ld-training': typeof LdTrainingRoute
   '/leaderboard': typeof LeaderboardRoute
   '/logout': typeof LogoutRoute
@@ -445,6 +497,7 @@ export interface FileRoutesById {
   '/self-training': typeof SelfTrainingRoute
   '/situational-training': typeof SituationalTrainingRoute
   '/student': typeof StudentRoute
+  '/student-message': typeof StudentMessageRoute
   '/students': typeof StudentsRoute
   '/technical-training': typeof TechnicalTrainingRoute
   '/tutorials': typeof TutorialsRoute
@@ -454,7 +507,11 @@ export interface FileRoutesById {
   '/gd-report/$gdId': typeof GdReportGdIdRoute
   '/interview-analysis/$interviewId': typeof InterviewAnalysisInterviewIdRoute
   '/mock-interview-transcript/$interviewId': typeof MockInterviewTranscriptInterviewIdRoute
+  '/student-activity/$studentId': typeof StudentActivityStudentIdRoute
+  '/student-data/$studentId': typeof StudentDataStudentIdRoute
   '/student-detail/$studentId': typeof StudentDetailStudentIdRoute
+  '/student-interview-evidence/$studentId/$interviewId': typeof StudentInterviewEvidenceStudentIdInterviewIdRoute
+  '/student-module/$studentId/$moduleKey': typeof StudentModuleStudentIdModuleKeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -484,6 +541,7 @@ export interface FileRouteTypes {
     | '/gd-room'
     | '/gd-training'
     | '/institute-billing'
+    | '/launch-targets'
     | '/ld-training'
     | '/leaderboard'
     | '/logout'
@@ -497,6 +555,7 @@ export interface FileRouteTypes {
     | '/self-training'
     | '/situational-training'
     | '/student'
+    | '/student-message'
     | '/students'
     | '/technical-training'
     | '/tutorials'
@@ -506,7 +565,11 @@ export interface FileRouteTypes {
     | '/gd-report/$gdId'
     | '/interview-analysis/$interviewId'
     | '/mock-interview-transcript/$interviewId'
+    | '/student-activity/$studentId'
+    | '/student-data/$studentId'
     | '/student-detail/$studentId'
+    | '/student-interview-evidence/$studentId/$interviewId'
+    | '/student-module/$studentId/$moduleKey'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -534,6 +597,7 @@ export interface FileRouteTypes {
     | '/gd-room'
     | '/gd-training'
     | '/institute-billing'
+    | '/launch-targets'
     | '/ld-training'
     | '/leaderboard'
     | '/logout'
@@ -547,6 +611,7 @@ export interface FileRouteTypes {
     | '/self-training'
     | '/situational-training'
     | '/student'
+    | '/student-message'
     | '/students'
     | '/technical-training'
     | '/tutorials'
@@ -556,7 +621,11 @@ export interface FileRouteTypes {
     | '/gd-report/$gdId'
     | '/interview-analysis/$interviewId'
     | '/mock-interview-transcript/$interviewId'
+    | '/student-activity/$studentId'
+    | '/student-data/$studentId'
     | '/student-detail/$studentId'
+    | '/student-interview-evidence/$studentId/$interviewId'
+    | '/student-module/$studentId/$moduleKey'
   id:
     | '__root__'
     | '/'
@@ -584,6 +653,7 @@ export interface FileRouteTypes {
     | '/gd-room'
     | '/gd-training'
     | '/institute-billing'
+    | '/launch-targets'
     | '/ld-training'
     | '/leaderboard'
     | '/logout'
@@ -597,6 +667,7 @@ export interface FileRouteTypes {
     | '/self-training'
     | '/situational-training'
     | '/student'
+    | '/student-message'
     | '/students'
     | '/technical-training'
     | '/tutorials'
@@ -606,7 +677,11 @@ export interface FileRouteTypes {
     | '/gd-report/$gdId'
     | '/interview-analysis/$interviewId'
     | '/mock-interview-transcript/$interviewId'
+    | '/student-activity/$studentId'
+    | '/student-data/$studentId'
     | '/student-detail/$studentId'
+    | '/student-interview-evidence/$studentId/$interviewId'
+    | '/student-module/$studentId/$moduleKey'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -635,6 +710,7 @@ export interface RootRouteChildren {
   GdRoomRoute: typeof GdRoomRoute
   GdTrainingRoute: typeof GdTrainingRoute
   InstituteBillingRoute: typeof InstituteBillingRoute
+  LaunchTargetsRoute: typeof LaunchTargetsRoute
   LdTrainingRoute: typeof LdTrainingRoute
   LeaderboardRoute: typeof LeaderboardRoute
   LogoutRoute: typeof LogoutRoute
@@ -648,6 +724,7 @@ export interface RootRouteChildren {
   SelfTrainingRoute: typeof SelfTrainingRoute
   SituationalTrainingRoute: typeof SituationalTrainingRoute
   StudentRoute: typeof StudentRoute
+  StudentMessageRoute: typeof StudentMessageRoute
   StudentsRoute: typeof StudentsRoute
   TechnicalTrainingRoute: typeof TechnicalTrainingRoute
   TutorialsRoute: typeof TutorialsRoute
@@ -657,7 +734,11 @@ export interface RootRouteChildren {
   GdReportGdIdRoute: typeof GdReportGdIdRoute
   InterviewAnalysisInterviewIdRoute: typeof InterviewAnalysisInterviewIdRoute
   MockInterviewTranscriptInterviewIdRoute: typeof MockInterviewTranscriptInterviewIdRoute
+  StudentActivityStudentIdRoute: typeof StudentActivityStudentIdRoute
+  StudentDataStudentIdRoute: typeof StudentDataStudentIdRoute
   StudentDetailStudentIdRoute: typeof StudentDetailStudentIdRoute
+  StudentInterviewEvidenceStudentIdInterviewIdRoute: typeof StudentInterviewEvidenceStudentIdInterviewIdRoute
+  StudentModuleStudentIdModuleKeyRoute: typeof StudentModuleStudentIdModuleKeyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -837,6 +918,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InstituteBillingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/launch-targets': {
+      id: '/launch-targets'
+      path: '/launch-targets'
+      fullPath: '/launch-targets'
+      preLoaderRoute: typeof LaunchTargetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ld-training': {
       id: '/ld-training'
       path: '/ld-training'
@@ -928,6 +1016,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/student-message': {
+      id: '/student-message'
+      path: '/student-message'
+      fullPath: '/student-message'
+      preLoaderRoute: typeof StudentMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/students': {
       id: '/students'
       path: '/students'
@@ -991,11 +1086,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MockInterviewTranscriptInterviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/student-activity/$studentId': {
+      id: '/student-activity/$studentId'
+      path: '/student-activity/$studentId'
+      fullPath: '/student-activity/$studentId'
+      preLoaderRoute: typeof StudentActivityStudentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student-data/$studentId': {
+      id: '/student-data/$studentId'
+      path: '/student-data/$studentId'
+      fullPath: '/student-data/$studentId'
+      preLoaderRoute: typeof StudentDataStudentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/student-detail/$studentId': {
       id: '/student-detail/$studentId'
       path: '/student-detail/$studentId'
       fullPath: '/student-detail/$studentId'
       preLoaderRoute: typeof StudentDetailStudentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student-interview-evidence/$studentId/$interviewId': {
+      id: '/student-interview-evidence/$studentId/$interviewId'
+      path: '/student-interview-evidence/$studentId/$interviewId'
+      fullPath: '/student-interview-evidence/$studentId/$interviewId'
+      preLoaderRoute: typeof StudentInterviewEvidenceStudentIdInterviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student-module/$studentId/$moduleKey': {
+      id: '/student-module/$studentId/$moduleKey'
+      path: '/student-module/$studentId/$moduleKey'
+      fullPath: '/student-module/$studentId/$moduleKey'
+      preLoaderRoute: typeof StudentModuleStudentIdModuleKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -1027,6 +1150,7 @@ const rootRouteChildren: RootRouteChildren = {
   GdRoomRoute: GdRoomRoute,
   GdTrainingRoute: GdTrainingRoute,
   InstituteBillingRoute: InstituteBillingRoute,
+  LaunchTargetsRoute: LaunchTargetsRoute,
   LdTrainingRoute: LdTrainingRoute,
   LeaderboardRoute: LeaderboardRoute,
   LogoutRoute: LogoutRoute,
@@ -1040,6 +1164,7 @@ const rootRouteChildren: RootRouteChildren = {
   SelfTrainingRoute: SelfTrainingRoute,
   SituationalTrainingRoute: SituationalTrainingRoute,
   StudentRoute: StudentRoute,
+  StudentMessageRoute: StudentMessageRoute,
   StudentsRoute: StudentsRoute,
   TechnicalTrainingRoute: TechnicalTrainingRoute,
   TutorialsRoute: TutorialsRoute,
@@ -1051,7 +1176,12 @@ const rootRouteChildren: RootRouteChildren = {
   InterviewAnalysisInterviewIdRoute: InterviewAnalysisInterviewIdRoute,
   MockInterviewTranscriptInterviewIdRoute:
     MockInterviewTranscriptInterviewIdRoute,
+  StudentActivityStudentIdRoute: StudentActivityStudentIdRoute,
+  StudentDataStudentIdRoute: StudentDataStudentIdRoute,
   StudentDetailStudentIdRoute: StudentDetailStudentIdRoute,
+  StudentInterviewEvidenceStudentIdInterviewIdRoute:
+    StudentInterviewEvidenceStudentIdInterviewIdRoute,
+  StudentModuleStudentIdModuleKeyRoute: StudentModuleStudentIdModuleKeyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,5 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, BookOpen, CalendarDays, Sparkles, TrendingUp, Users } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarDays,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import {
   Bar as ChartBar,
   BarChart,
@@ -34,20 +42,110 @@ export const Route = createFileRoute("/ld-training")({
 });
 
 const PROGRAMS = [
-  { name: "Communication Development Program", track: "CDP", focus: "STAR storytelling · voice · fluency", audience: "CSE · IT", enrolled: 92, sessions: 12, weeks: "6 wks", status: "Live", progress: 68 },
-  { name: "APLR Foundation Bootcamp", track: "APL", focus: "Quantitative · logical reasoning · puzzles", audience: "All branches", enrolled: 148, sessions: 16, weeks: "8 wks", status: "Live", progress: 52 },
-  { name: "DSA & Coding Fundamentals", track: "DSA", focus: "Arrays · hash maps · recursion · DP", audience: "CSE · IT · AI·DS", enrolled: 74, sessions: 14, weeks: "10 wks", status: "Live", progress: 34 },
-  { name: "GD & Interview Academy", track: "GDA", focus: "Group discussions · HR rounds · personal pitch", audience: "All branches", enrolled: 61, sessions: 10, weeks: "5 wks", status: "Upcoming", progress: 0 },
-  { name: "English for Workplace", track: "EWP", focus: "Speaking · writing · email etiquette", audience: "All branches", enrolled: 118, sessions: 8, weeks: "4 wks", status: "Live", progress: 77 },
-  { name: "Technical Interview Prep", track: "TIP", focus: "Java · OS · DBMS · OOP design", audience: "CSE · IT · AI·DS", enrolled: 38, sessions: 9, weeks: "6 wks", status: "Completed", progress: 100 },
+  {
+    name: "Communication Development Program",
+    track: "CDP",
+    focus: "STAR storytelling · voice · fluency",
+    audience: "CSE · IT",
+    enrolled: 92,
+    sessions: 12,
+    weeks: "6 wks",
+    status: "Live",
+    progress: 68,
+  },
+  {
+    name: "APLR Foundation Bootcamp",
+    track: "APL",
+    focus: "Quantitative · logical reasoning · puzzles",
+    audience: "All branches",
+    enrolled: 148,
+    sessions: 16,
+    weeks: "8 wks",
+    status: "Live",
+    progress: 52,
+  },
+  {
+    name: "DSA & Coding Fundamentals",
+    track: "DSA",
+    focus: "Arrays · hash maps · recursion · DP",
+    audience: "CSE · IT · AI·DS",
+    enrolled: 74,
+    sessions: 14,
+    weeks: "10 wks",
+    status: "Live",
+    progress: 34,
+  },
+  {
+    name: "GD & Interview Academy",
+    track: "GDA",
+    focus: "Group discussions · HR rounds · personal pitch",
+    audience: "All branches",
+    enrolled: 61,
+    sessions: 10,
+    weeks: "5 wks",
+    status: "Upcoming",
+    progress: 0,
+  },
+  {
+    name: "English for Workplace",
+    track: "EWP",
+    focus: "Speaking · writing · email etiquette",
+    audience: "All branches",
+    enrolled: 118,
+    sessions: 8,
+    weeks: "4 wks",
+    status: "Live",
+    progress: 77,
+  },
+  {
+    name: "Technical Interview Prep",
+    track: "TIP",
+    focus: "Java · OS · DBMS · OOP design",
+    audience: "CSE · IT · AI·DS",
+    enrolled: 38,
+    sessions: 9,
+    weeks: "6 wks",
+    status: "Completed",
+    progress: 100,
+  },
 ] as const;
 
 const SESSION_SUGGESTIONS = [
-  { batch: "CDP-B2", program: "Communication Dev Program", focus: "Voice modulation · fluency drills · STAR practice", sessions: 4, priority: 92 },
-  { batch: "APL-B3", program: "APLR Foundation Bootcamp", focus: "Speed arithmetic · time-boxed puzzle sets", sessions: 5, priority: 86 },
-  { batch: "EWP-B1", program: "English for Workplace", focus: "Group presentation · email drafting", sessions: 3, priority: 80 },
-  { batch: "GDA-B2", program: "GD & Interview Academy", focus: "Panel GD practice · situational HR rounds", sessions: 4, priority: 74 },
-  { batch: "DSA-B2", program: "DSA & Coding Fundamentals", focus: "DP pattern drills · live coding", sessions: 3, priority: 62 },
+  {
+    batch: "CDP-B2",
+    program: "Communication Dev Program",
+    focus: "Voice modulation · fluency drills · STAR practice",
+    sessions: 4,
+    priority: 92,
+  },
+  {
+    batch: "APL-B3",
+    program: "APLR Foundation Bootcamp",
+    focus: "Speed arithmetic · time-boxed puzzle sets",
+    sessions: 5,
+    priority: 86,
+  },
+  {
+    batch: "EWP-B1",
+    program: "English for Workplace",
+    focus: "Group presentation · email drafting",
+    sessions: 3,
+    priority: 80,
+  },
+  {
+    batch: "GDA-B2",
+    program: "GD & Interview Academy",
+    focus: "Panel GD practice · situational HR rounds",
+    sessions: 4,
+    priority: 74,
+  },
+  {
+    batch: "DSA-B2",
+    program: "DSA & Coding Fundamentals",
+    focus: "DP pattern drills · live coding",
+    sessions: 3,
+    priority: 62,
+  },
 ] as const;
 
 const SUGGESTION_COLORS = [
@@ -84,27 +182,27 @@ const CLASSIFICATION_META = [
   {
     label: "Need Communication training",
     detail: "Voice, structure and STAR storytelling",
-    value: READINESS_CLASSIFICATIONS[0].students,
+    value: READINESS_CLASSIFICATIONS[0]!.students,
   },
   {
     label: "Need Aptitude training",
     detail: "Quantitative and logical reasoning",
-    value: READINESS_CLASSIFICATIONS[1].students,
+    value: READINESS_CLASSIFICATIONS[1]!.students,
   },
   {
     label: "In-person consultation needed",
     detail: "Open a counselling slot with the TPO",
-    value: READINESS_CLASSIFICATIONS[2].students,
+    value: READINESS_CLASSIFICATIONS[2]!.students,
   },
   {
     label: "English training needed",
     detail: "Speaking, writing and email etiquette",
-    value: READINESS_CLASSIFICATIONS[3].students,
+    value: READINESS_CLASSIFICATIONS[3]!.students,
   },
   {
     label: "Overconfident",
     detail: "Score gap between self-rating and evidence",
-    value: READINESS_CLASSIFICATIONS[4].students,
+    value: READINESS_CLASSIFICATIONS[4]!.students,
   },
 ];
 
@@ -119,16 +217,49 @@ function LdTrainingPage() {
       title="L&D Training"
       subtitle="Learning & Development programs for readiness and placements — S.V.I.T., Pune"
       actions={
-        <span className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium">
-          <CalendarDays className="size-3.5 text-muted-foreground" /> Term: AY 2026-27 · Sem I
-        </span>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/launch-targets"
+            className="inline-flex items-center gap-2 rounded-md bg-foreground px-3 py-2 text-xs font-medium text-background transition-colors hover:bg-foreground/90"
+          >
+            <Target className="size-3.5" /> Launch targets
+          </Link>
+          <span className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium">
+            <CalendarDays className="size-3.5 text-muted-foreground" /> Term: AY 2026-27 - Sem I
+          </span>
+        </div>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Active programs" value={liveCount} suffix="tracks" icon={BookOpen} hint={`${PROGRAMS.length} total`} />
-        <Kpi label="Students enrolled" value={totalEnrolled} icon={Users} delta={8} hint="across all cohorts" />
-        <Kpi label="Sessions this month" value={18} suffix="held" icon={CalendarDays} hint="on + hybrid + online" />
-        <Kpi label="Avg. readiness uplift" value={11} suffix="%" icon={TrendingUp} delta={3} hint="after program completion" />
+        <Kpi
+          label="Active programs"
+          value={liveCount}
+          suffix="tracks"
+          icon={BookOpen}
+          hint={`${PROGRAMS.length} total`}
+        />
+        <Kpi
+          label="Students enrolled"
+          value={totalEnrolled}
+          icon={Users}
+          delta={8}
+          hint="across all cohorts"
+        />
+        <Kpi
+          label="Sessions this month"
+          value={18}
+          suffix="held"
+          icon={CalendarDays}
+          hint="on + hybrid + online"
+        />
+        <Kpi
+          label="Avg. readiness uplift"
+          value={11}
+          suffix="%"
+          icon={TrendingUp}
+          delta={3}
+          hint="after program completion"
+        />
       </div>
 
       <Panel
@@ -140,10 +271,7 @@ function LdTrainingPage() {
           <ResponsiveContainer width="100%" height={240}>
             <RadarChart data={READINESS_CLASSIFICATIONS} outerRadius="68%">
               <PolarGrid stroke={chartColors.grid} />
-              <PolarAngleAxis
-                dataKey="area"
-                tick={{ fontSize: 11, fill: "oklch(0.45 0 0)" }}
-              />
+              <PolarAngleAxis dataKey="area" tick={{ fontSize: 11, fill: "oklch(0.45 0 0)" }} />
               <PolarRadiusAxis
                 angle={90}
                 domain={[0, maxClassification]}
@@ -190,16 +318,24 @@ function LdTrainingPage() {
             <div key={p.name} className="rounded-lg border border-border p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{p.track}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    {p.track}
+                  </p>
                   <h3 className="mt-1 text-sm font-semibold">{p.name}</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">{p.focus}</p>
                 </div>
                 <Pill tone={tones(p.status)}>{p.status}</Pill>
               </div>
               <div className="mt-4 flex items-center gap-4 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Users className="size-3.5" /> {p.enrolled} enrolled</span>
-                <span className="flex items-center gap-1.5"><Sparkles className="size-3.5" /> {p.sessions} sessions</span>
-                <span className="flex items-center gap-1.5"><CalendarDays className="size-3.5" /> {p.weeks}</span>
+                <span className="flex items-center gap-1.5">
+                  <Users className="size-3.5" /> {p.enrolled} enrolled
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="size-3.5" /> {p.sessions} sessions
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5" /> {p.weeks}
+                </span>
               </div>
               <div className="mt-3">
                 <Bar value={p.progress} />
@@ -221,7 +357,7 @@ function LdTrainingPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <ResponsiveContainer width="100%" height={230}>
             <BarChart
-              data={SESSION_SUGGESTIONS}
+              data={[...SESSION_SUGGESTIONS]}
               layout="vertical"
               margin={{ top: 2, right: 26, bottom: 0, left: 0 }}
             >
@@ -245,7 +381,12 @@ function LdTrainingPage() {
                 {SESSION_SUGGESTIONS.map((s, i) => (
                   <Cell key={s.batch} fill={SUGGESTION_COLORS[i]} />
                 ))}
-                <LabelList dataKey="sessions" position="right" fontSize={11} fill="oklch(0.35 0 0)" />
+                <LabelList
+                  dataKey="sessions"
+                  position="right"
+                  fontSize={11}
+                  fill="oklch(0.35 0 0)"
+                />
               </ChartBar>
             </BarChart>
           </ResponsiveContainer>

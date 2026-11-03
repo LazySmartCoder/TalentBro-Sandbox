@@ -13,6 +13,8 @@ export const SANDBOX_DATA_KEYS = [
   "sandbox.situational",
   "sandbox.notifRead",
   "sandbox.forum",
+  "sandbox.targets",
+  "sandbox.student-messages",
 ] as const;
 
 export function resetSandboxData(): void {

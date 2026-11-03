@@ -1463,8 +1463,8 @@ function ChatPage() {
             sidebarOpen ? "w-[272px] translate-x-0" : "w-0 -translate-x-full",
           )}
         >
-          <div className="flex items-center justify-between px-4 py-4">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-between gap-2 px-4 py-4">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
               {user.institution_logo ? (
                 <span className="grid size-8 place-items-center rounded-md bg-white">
                   <img
@@ -1492,7 +1492,7 @@ function ChatPage() {
               onClick={() => setSidebarOpen((o) => !o)}
               aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
               title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-              className="cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="shrink-0 cursor-pointer rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {sidebarOpen ? (
                 <ChevronsLeft className="size-4" />

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Download, Search, SlidersHorizontal, X } from "lucide-react";
 import {
@@ -326,12 +326,21 @@ function StudentsPage() {
                     )}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <button
-                      onClick={() => setSelected(s)}
-                      className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
-                    >
-                      Profile
-                    </button>
+                    <div className="flex justify-end gap-1.5">
+                      <Link
+                        to="/student-data/$studentId"
+                        params={{ studentId: s.id }}
+                        className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+                      >
+                        Record
+                      </Link>
+                      <button
+                        onClick={() => setSelected(s)}
+                        className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+                      >
+                        Profile
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

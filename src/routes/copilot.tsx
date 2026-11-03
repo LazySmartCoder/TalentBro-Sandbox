@@ -43,7 +43,7 @@ function CopilotPage() {
   };
 
   return (
-    <EnvGate allow="copilot">
+    <EnvGate allow={["copilot"]}>
       <div className="min-h-screen bg-background text-foreground">
         <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">

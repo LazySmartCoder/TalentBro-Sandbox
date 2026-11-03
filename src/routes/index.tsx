@@ -122,7 +122,7 @@ function DemoPage() {
                       .getElementById("environments")
                       ?.scrollIntoView({ behavior: "smooth", block: "start" })
                   }
-                  className="mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-85"
+                  className="mt-8 inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-85"
                 >
                   Explore Demo <span aria-hidden>↓</span>
                 </button>

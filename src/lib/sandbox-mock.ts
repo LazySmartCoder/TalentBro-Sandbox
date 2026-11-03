@@ -12,15 +12,11 @@ import {
   type Department,
   type Student as SeedStudent,
 } from "./data";
-import {
-  delay,
-  getSandboxRole,
-  nowIso,
-  readJson,
-  uid,
-  writeJson,
-} from "./sandbox-store";
+import { delay, getSandboxRole, nowIso, readJson, uid, writeJson } from "./sandbox-store";
 import type {
+  ActivityModuleKey,
+  ActivityModuleSummary,
+  ActivitySession,
   AuthUser,
   CandidateProfilePayload,
   CandidateRoadmap,
@@ -29,6 +25,7 @@ import type {
   ChatSession,
   CommunicationTrainingSession,
   DriveCompanyTier,
+  EnglishSessionEvidenceResponse,
   EnglishTrainingSession,
   ForumPost,
   ForumPostsResponse,
@@ -43,8 +40,17 @@ import type {
   PlacementCompany,
   PlacementDrive,
   PlacementStatus,
+  QuestionSessionEvidenceResponse,
   ReportsData,
+  StudentActivityResponse,
+  StudentDetail,
+  StudentInterviewEvidenceResponse,
+  StudentMessage,
+  StudentMessagesResponse,
   StudentRecord,
+  StudentTarget,
+  StudentTargetModule,
+  StudentTargets,
   StudentsResponse,
   CodingAssessmentSession,
   ReadingComprehensionSession,
@@ -204,9 +210,7 @@ function seedToPlacementCompany(c: SeedCompany): PlacementCompany {
 
 function seedToPlacementDrive(d: (typeof seedDrives)[number]): PlacementDrive {
   const company = seedCompanies.find((c) => c.name === d.company);
-  const tier = company
-    ? (TIER_FOR_TIER[company.tier] ?? tierForCtc(d.ctc))
-    : tierForCtc(d.ctc);
+  const tier = company ? (TIER_FOR_TIER[company.tier] ?? tierForCtc(d.ctc)) : tierForCtc(d.ctc);
   return {
     company_id: d.id,
     company_name: d.company,
@@ -244,8 +248,7 @@ function overview(): InstitutionOverview {
   const inSelection = seedStudents.filter((s) => s.status === "In Process");
   const avgCgpa = seedStudents.reduce((a, b) => a + b.cgpa, 0) / Math.max(1, total);
   const highestCgpa = Math.max(...seedStudents.map((s) => s.cgpa));
-  const avgCtc =
-    placed.reduce((a, b) => a + (b.package ?? 0), 0) / Math.max(1, placed.length);
+  const avgCtc = placed.reduce((a, b) => a + (b.package ?? 0), 0) / Math.max(1, placed.length);
   const activeCompanies = seedCompanies.filter((c) => c.status === "Active");
   const activeDrives = seedDrives.filter((d) => d.status !== "Completed");
   const openings = seedCompanies.reduce((a, c) => a + c.offers2026, 0);
@@ -262,7 +265,9 @@ function overview(): InstitutionOverview {
       eligible: el.length,
       placed: p.length,
       rate: Math.round((p.length / Math.max(1, list.length)) * 100),
-      avg_cgpa: Number((list.reduce((a, b) => a + b.cgpa, 0) / Math.max(1, list.length)).toFixed(2)),
+      avg_cgpa: Number(
+        (list.reduce((a, b) => a + b.cgpa, 0) / Math.max(1, list.length)).toFixed(2),
+      ),
       avg_expected_ctc: Number(avg.toFixed(1)),
     };
   });
@@ -325,7 +330,12 @@ function reportsData(): ReportsData {
   const ov = overview();
   const industryCount: Record<string, number> = {};
   for (const c of seedCompanies) industryCount[c.sector] = (industryCount[c.sector] ?? 0) + 1;
-  const tierCount: Record<DriveCompanyTier, number> = { super_dream: 0, dream: 0, core: 0, mass: 0 };
+  const tierCount: Record<DriveCompanyTier, number> = {
+    super_dream: 0,
+    dream: 0,
+    core: 0,
+    mass: 0,
+  };
   for (const c of seedCompanies) {
     const tier = TIER_FOR_TIER[c.tier] ?? "core";
     tierCount[tier] += 1;
@@ -343,26 +353,37 @@ function reportsData(): ReportsData {
     monthly: ov.monthly,
     depts: ov.departments,
     industries: Object.entries(industryCount).map(([industry, count]) => ({ industry, count })),
-    ctc_bands: seedCtcBands.map((b) => ({ band: b.band, companies: Math.max(1, Math.round(b.students / 20)) })),
+    ctc_bands: seedCtcBands.map((b) => ({
+      band: b.band,
+      companies: Math.max(1, Math.round(b.students / 20)),
+    })),
     tiers: TIERS.map((t) => ({ tier: t.tier, label: t.label, count: tierCount[t.tier] })),
     batch: ov.batch,
   };
 }
 
 function leaderboard(): LeaderboardResponse {
-  const ranked = [...seedStudentsRecords].sort((a, b) => (b.performance_score ?? 0) - (a.performance_score ?? 0));
+  const ranked = [...seedStudentsRecords].sort(
+    (a, b) => (b.performance_score ?? 0) - (a.performance_score ?? 0),
+  );
   ranked.forEach((r, i) => {
     r.overall_rank = i + 1;
     const deptCount = ranked.filter((x) => x.department === r.department).length;
     r.department_rank =
-      ranked.filter((x) => x.department === r.department && (x.performance_score ?? 0) > (r.performance_score ?? 0)).length + 1;
+      ranked.filter(
+        (x) =>
+          x.department === r.department && (x.performance_score ?? 0) > (r.performance_score ?? 0),
+      ).length + 1;
     r.department_total = deptCount;
   });
   return {
     institution: INSTITUTION_NAME,
     total: ranked.length,
     ranked: ranked.length,
-    students: ranked.map((r, i) => ({ ...r, is_self: r.id === STUDENT_USER.id ? false : i === 0 ? true : i % 24 === 0 })),
+    students: ranked.map((r, i) => ({
+      ...r,
+      is_self: r.id === STUDENT_USER.id ? false : i === 0 ? true : i % 24 === 0,
+    })),
   };
 }
 
@@ -394,7 +415,11 @@ function studentProfile(): CandidateProfilePayload {
       skills: ["Java", "Spring Boot", "MySQL", "React", "Problem Solving", "DSA"],
       certifications: ["Google Cloud Digital Leader", "NASSCOM Employability"],
       projects: [
-        { name: "Placement Readiness Dashboard", description: "React + Recharts analytics", link: "" },
+        {
+          name: "Placement Readiness Dashboard",
+          description: "React + Recharts analytics",
+          link: "",
+        },
         { name: "Library Management API", description: "Spring Boot + MySQL", link: "" },
       ],
       internships: [
@@ -462,12 +487,46 @@ function seededChats(): StoredChatSession[] {
       message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "Placement season starts in five weeks and I still have classes. Can you build a prep plan I can actually follow?", created_at: daysAgo(1, 20) },
-        { id: 2, role: "assistant", content: "Yes. Treat it as 5 weeks x 5 weekdays x 90 minutes. Split each session into 45 minutes of focused practice, 30 minutes reviewing mistakes, and 15 minutes writing one takeaway. Weekends are for one full mock interview and one timed assessment.", created_at: daysAgo(1, 20) },
-        { id: 3, role: "user", content: "What should the first week look like?", created_at: daysAgo(1, 20) },
-        { id: 4, role: "assistant", content: "Week 1 is diagnosis, not grinding. Take one aptitude test, one DSA contest-style set, and one mock interview. Log every mistake by type: concept gap, silly error, or speed. That log decides what Week 2 revisits.", created_at: daysAgo(1, 21) },
-        { id: 5, role: "user", content: "And if I only get 45 minutes some days?", created_at: daysAgo(1, 21) },
-        { id: 6, role: "assistant", content: "Shrink, don't skip. Do 30 minutes of the hardest topic and 15 minutes of revision. Consistency beats long sessions you dread — a 45-minute day still keeps the streak alive.", created_at: daysAgo(1, 21) },
+        {
+          id: 1,
+          role: "user",
+          content:
+            "Placement season starts in five weeks and I still have classes. Can you build a prep plan I can actually follow?",
+          created_at: daysAgo(1, 20),
+        },
+        {
+          id: 2,
+          role: "assistant",
+          content:
+            "Yes. Treat it as 5 weeks x 5 weekdays x 90 minutes. Split each session into 45 minutes of focused practice, 30 minutes reviewing mistakes, and 15 minutes writing one takeaway. Weekends are for one full mock interview and one timed assessment.",
+          created_at: daysAgo(1, 20),
+        },
+        {
+          id: 3,
+          role: "user",
+          content: "What should the first week look like?",
+          created_at: daysAgo(1, 20),
+        },
+        {
+          id: 4,
+          role: "assistant",
+          content:
+            "Week 1 is diagnosis, not grinding. Take one aptitude test, one DSA contest-style set, and one mock interview. Log every mistake by type: concept gap, silly error, or speed. That log decides what Week 2 revisits.",
+          created_at: daysAgo(1, 21),
+        },
+        {
+          id: 5,
+          role: "user",
+          content: "And if I only get 45 minutes some days?",
+          created_at: daysAgo(1, 21),
+        },
+        {
+          id: 6,
+          role: "assistant",
+          content:
+            "Shrink, don't skip. Do 30 minutes of the hardest topic and 15 minutes of revision. Consistency beats long sessions you dread — a 45-minute day still keeps the streak alive.",
+          created_at: daysAgo(1, 21),
+        },
       ],
     },
     {
@@ -478,12 +537,41 @@ function seededChats(): StoredChatSession[] {
       message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "My resume says 'Built a college placement portal'. Recruiters don't seem impressed. How do I make it sound stronger?", created_at: daysAgo(2, 14) },
-        { id: 2, role: "assistant", content: "Lead with the problem, the scale, and the measurable outcome. 'Built a placement portal' describes an artifact. 'Built a placement portal used by 500+ students and 30 recruiters, cutting drive coordination time from 3 days to 6 hours' describes impact.", created_at: daysAgo(2, 14) },
-        { id: 3, role: "user", content: "I don't have exact numbers. Can I estimate?", created_at: daysAgo(2, 14) },
-        { id: 4, role: "assistant", content: "Use ranges only if you can defend them. Better to say 'used by 500+ students across 3 departments' if that's true than to invent a percentage. Recruiters probe bullet points in interviews, so every number must have a story behind it.", created_at: daysAgo(2, 15) },
+        {
+          id: 1,
+          role: "user",
+          content:
+            "My resume says 'Built a college placement portal'. Recruiters don't seem impressed. How do I make it sound stronger?",
+          created_at: daysAgo(2, 14),
+        },
+        {
+          id: 2,
+          role: "assistant",
+          content:
+            "Lead with the problem, the scale, and the measurable outcome. 'Built a placement portal' describes an artifact. 'Built a placement portal used by 500+ students and 30 recruiters, cutting drive coordination time from 3 days to 6 hours' describes impact.",
+          created_at: daysAgo(2, 14),
+        },
+        {
+          id: 3,
+          role: "user",
+          content: "I don't have exact numbers. Can I estimate?",
+          created_at: daysAgo(2, 14),
+        },
+        {
+          id: 4,
+          role: "assistant",
+          content:
+            "Use ranges only if you can defend them. Better to say 'used by 500+ students across 3 departments' if that's true than to invent a percentage. Recruiters probe bullet points in interviews, so every number must have a story behind it.",
+          created_at: daysAgo(2, 15),
+        },
         { id: 5, role: "user", content: "What about the tools line?", created_at: daysAgo(2, 15) },
-        { id: 6, role: "assistant", content: "Put the stack on the same line as the project but after the impact: '... — React, Node.js, PostgreSQL'. And drop anything you can't answer a follow-up question about. A short, defensible resume beats a long, risky one.", created_at: daysAgo(2, 15) },
+        {
+          id: 6,
+          role: "assistant",
+          content:
+            "Put the stack on the same line as the project but after the impact: '... — React, Node.js, PostgreSQL'. And drop anything you can't answer a follow-up question about. A short, defensible resume beats a long, risky one.",
+          created_at: daysAgo(2, 15),
+        },
       ],
     },
     {
@@ -494,12 +582,40 @@ function seededChats(): StoredChatSession[] {
       message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "My JOIN query returns more rows than the original table. Why?", created_at: daysAgo(3, 11) },
-        { id: 2, role: "assistant", content: "That usually means the join key is not unique on the other side. If one orders row matches three order_items rows, the order appears three times. Check the cardinality with SELECT order_id, COUNT(*) FROM order_items GROUP BY order_id HAVING COUNT(*) > 1.", created_at: daysAgo(3, 11) },
-        { id: 3, role: "user", content: "I just want one row per order. How do I fix it?", created_at: daysAgo(3, 11) },
-        { id: 4, role: "assistant", content: "Three options: aggregate the child rows (SUM, COUNT) in a subquery and join that, use EXISTS if you only need to filter, or use DISTINCT if the duplicated columns are identical. Pick based on whether you need the child data or just a yes/no test.", created_at: daysAgo(3, 12) },
+        {
+          id: 1,
+          role: "user",
+          content: "My JOIN query returns more rows than the original table. Why?",
+          created_at: daysAgo(3, 11),
+        },
+        {
+          id: 2,
+          role: "assistant",
+          content:
+            "That usually means the join key is not unique on the other side. If one orders row matches three order_items rows, the order appears three times. Check the cardinality with SELECT order_id, COUNT(*) FROM order_items GROUP BY order_id HAVING COUNT(*) > 1.",
+          created_at: daysAgo(3, 11),
+        },
+        {
+          id: 3,
+          role: "user",
+          content: "I just want one row per order. How do I fix it?",
+          created_at: daysAgo(3, 11),
+        },
+        {
+          id: 4,
+          role: "assistant",
+          content:
+            "Three options: aggregate the child rows (SUM, COUNT) in a subquery and join that, use EXISTS if you only need to filter, or use DISTINCT if the duplicated columns are identical. Pick based on whether you need the child data or just a yes/no test.",
+          created_at: daysAgo(3, 12),
+        },
         { id: 5, role: "user", content: "Which is fastest?", created_at: daysAgo(3, 12) },
-        { id: 6, role: "assistant", content: "EXISTS is usually cheapest when you only need existence because the engine can stop at the first match. Aggregate-then-join is best when you need totals. DISTINCT is a code smell if it's hiding a join you didn't design carefully.", created_at: daysAgo(3, 12) },
+        {
+          id: 6,
+          role: "assistant",
+          content:
+            "EXISTS is usually cheapest when you only need existence because the engine can stop at the first match. Aggregate-then-join is best when you need totals. DISTINCT is a code smell if it's hiding a join you didn't design carefully.",
+          created_at: daysAgo(3, 12),
+        },
       ],
     },
     {
@@ -510,12 +626,45 @@ function seededChats(): StoredChatSession[] {
       message_count: 6,
       older_available: false,
       messages: [
-        { id: 1, role: "user", content: "I do fine in technical rounds but I freeze in HR interviews. Any advice?", created_at: daysAgo(4, 18) },
-        { id: 2, role: "assistant", content: "Freezing usually comes from treating HR rounds as improvisation. They're actually pattern questions. Prepare six stories — conflict, failure, teamwork, deadline, initiative, and learning — and you can answer almost any behavioural question by adapting one.", created_at: daysAgo(4, 18) },
-        { id: 3, role: "user", content: "How long should each answer be?", created_at: daysAgo(4, 18) },
-        { id: 4, role: "assistant", content: "Use STAR in about 90 seconds: 15 seconds situation, 20 seconds task, 40 seconds action, 15 seconds result. If you speak for three minutes, the interviewer stops listening for the result.", created_at: daysAgo(4, 19) },
-        { id: 5, role: "user", content: "What if they ask something I've never experienced?", created_at: daysAgo(4, 19) },
-        { id: 6, role: "assistant", content: "Say so briefly, then bridge: 'I haven't faced exactly that, but the closest was...' Interviewers care about your reasoning, not a perfect anecdote. Rehearsing out loud twice with a friend is worth more than reading ten articles.", created_at: daysAgo(4, 19) },
+        {
+          id: 1,
+          role: "user",
+          content: "I do fine in technical rounds but I freeze in HR interviews. Any advice?",
+          created_at: daysAgo(4, 18),
+        },
+        {
+          id: 2,
+          role: "assistant",
+          content:
+            "Freezing usually comes from treating HR rounds as improvisation. They're actually pattern questions. Prepare six stories — conflict, failure, teamwork, deadline, initiative, and learning — and you can answer almost any behavioural question by adapting one.",
+          created_at: daysAgo(4, 18),
+        },
+        {
+          id: 3,
+          role: "user",
+          content: "How long should each answer be?",
+          created_at: daysAgo(4, 18),
+        },
+        {
+          id: 4,
+          role: "assistant",
+          content:
+            "Use STAR in about 90 seconds: 15 seconds situation, 20 seconds task, 40 seconds action, 15 seconds result. If you speak for three minutes, the interviewer stops listening for the result.",
+          created_at: daysAgo(4, 19),
+        },
+        {
+          id: 5,
+          role: "user",
+          content: "What if they ask something I've never experienced?",
+          created_at: daysAgo(4, 19),
+        },
+        {
+          id: 6,
+          role: "assistant",
+          content:
+            "Say so briefly, then bridge: 'I haven't faced exactly that, but the closest was...' Interviewers care about your reasoning, not a perfect anecdote. Rehearsing out loud twice with a friend is worth more than reading ten articles.",
+          created_at: daysAgo(4, 19),
+        },
       ],
     },
   ];
@@ -568,7 +717,12 @@ function handleChatPost(body: Record<string, unknown>): {
   const incoming = typeof body.session_id === "string" ? body.session_id : null;
   let session = incoming ? chats.find((c) => c.id === incoming) : null;
   const isNew = !session;
-  const title = (typeof body.title === "string" && body.title.trim()) ? body.title : isNew ? message.slice(0, 60) || uid("chat") : session!.title;
+  const title =
+    typeof body["title"] === "string" && body["title"].trim()
+      ? body["title"]
+      : isNew
+        ? message.slice(0, 60) || uid("chat")
+        : session!.title;
   if (!session) {
     session = {
       id: uid("chat"),
@@ -582,8 +736,19 @@ function handleChatPost(body: Record<string, unknown>): {
     chats.unshift(session);
   }
   const reply = demoChatReply(message, title);
-  session.messages.push({ id: session.messages.length + 1, role: "user", content: message, created_at: nowIso() });
-  session.messages.push({ id: session.messages.length + 1, role: "assistant", content: reply, translation: undefined, created_at: nowIso() });
+  session.messages.push({
+    id: session.messages.length + 1,
+    role: "user",
+    content: message,
+    created_at: nowIso(),
+  });
+  session.messages.push({
+    id: session.messages.length + 1,
+    role: "assistant",
+    content: reply,
+    translation: undefined,
+    created_at: nowIso(),
+  });
   session.message_count = session.messages.length;
   session.updated_at = nowIso();
   saveChats(chats);
@@ -669,7 +834,9 @@ function nextMockSpeaker(interview: MockInterviewDetail, roster: PanelistId[]): 
   if (roster.length === 0) return "atlas";
   if (roster.length === 1) return roster[0]!;
   const spoken = interview.messages
-    .filter((m) => m.role === "assistant" && m.panelist && roster.includes(m.panelist as PanelistId))
+    .filter(
+      (m) => m.role === "assistant" && m.panelist && roster.includes(m.panelist as PanelistId),
+    )
     .map((m) => m.panelist as PanelistId);
   const previous = spoken[spoken.length - 1];
   const candidates = roster.filter((id) => id !== previous);
@@ -688,7 +855,8 @@ function nextMockSpeaker(interview: MockInterviewDetail, roster: PanelistId[]): 
 }
 
 const INTERVIEW_RESULTS: Record<string, string> = {
-  "How would you rate your preparation for this role?": "Solid fundamentals with good project depth; could improve on behavioural stories.",
+  "How would you rate your preparation for this role?":
+    "Solid fundamentals with good project depth; could improve on behavioural stories.",
 };
 
 function seededInterviews(): MockInterviewDetail[] {
@@ -710,12 +878,46 @@ function seededInterviews(): MockInterviewDetail[] {
       updated_at: `${BATCH_YEAR}-08-20T10:45:00Z`,
       message_count: 6,
       messages: [
-        { id: 1, role: "assistant", panelist: "maya", content: "Good morning Aarav! I'm Maya. Let's start — walk me through your final-year project.", created_at: `${BATCH_YEAR}-08-20T10:30:10Z` },
-        { id: 2, role: "user", content: "Morning! My project is a campus placement readiness dashboard...", created_at: `${BATCH_YEAR}-08-20T10:32:30Z` },
-        { id: 3, role: "assistant", panelist: "albert", content: "Nice. Which data structure did you rely on for rankings and why?", created_at: `${BATCH_YEAR}-08-20T10:34:00Z` },
-        { id: 4, role: "user", content: "A priority queue backed by a heap, because ranking updates are frequent.", created_at: `${BATCH_YEAR}-08-20T10:36:00Z` },
-        { id: 5, role: "assistant", panelist: "maya", content: "Good choice. One more — tell me about a team deadline you handled.", created_at: `${BATCH_YEAR}-08-20T10:37:00Z` },
-        { id: 6, role: "user", content: "During our hackathon...", created_at: `${BATCH_YEAR}-08-20T10:39:00Z` },
+        {
+          id: 1,
+          role: "assistant",
+          panelist: "maya",
+          content:
+            "Good morning Aarav! I'm Maya. Let's start — walk me through your final-year project.",
+          created_at: `${BATCH_YEAR}-08-20T10:30:10Z`,
+        },
+        {
+          id: 2,
+          role: "user",
+          content: "Morning! My project is a campus placement readiness dashboard...",
+          created_at: `${BATCH_YEAR}-08-20T10:32:30Z`,
+        },
+        {
+          id: 3,
+          role: "assistant",
+          panelist: "albert",
+          content: "Nice. Which data structure did you rely on for rankings and why?",
+          created_at: `${BATCH_YEAR}-08-20T10:34:00Z`,
+        },
+        {
+          id: 4,
+          role: "user",
+          content: "A priority queue backed by a heap, because ranking updates are frequent.",
+          created_at: `${BATCH_YEAR}-08-20T10:36:00Z`,
+        },
+        {
+          id: 5,
+          role: "assistant",
+          panelist: "maya",
+          content: "Good choice. One more — tell me about a team deadline you handled.",
+          created_at: `${BATCH_YEAR}-08-20T10:37:00Z`,
+        },
+        {
+          id: 6,
+          role: "user",
+          content: "During our hackathon...",
+          created_at: `${BATCH_YEAR}-08-20T10:39:00Z`,
+        },
       ],
       analysis: {
         id: "mi-an-1",
@@ -726,20 +928,68 @@ function seededInterviews(): MockInterviewDetail[] {
         scored_dimensions: 10,
         total_dimensions: 34,
         metrics: [
-          { dimension: "Communication Skills", description: "How clearly you explain ideas", percentage: 82 },
-          { dimension: "Verbal Fluency", description: "Smoothness and pace of delivery", percentage: 78 },
-          { dimension: "Clarity of Thought", description: "Order and focus of your reasoning", percentage: 80 },
-          { dimension: "Analytical & Problem-Solving Ability", description: "Structure of your approach", percentage: 76 },
-          { dimension: "Knowledge & Awareness", description: "Accuracy of technical reasoning", percentage: 72 },
-          { dimension: "Confidence", description: "Confidence in situational answers", percentage: 74 },
-          { dimension: "Leadership & Initiative", description: "Ownership shown in examples", percentage: 68 },
-          { dimension: "Emotional Maturity", description: "Composure under pressure", percentage: 77 },
-          { dimension: "Teamwork & Interpersonal Skills", description: "How you work with others", percentage: 81 },
-          { dimension: "Motivation & Fit", description: "Alignment with role and values", percentage: 79 },
+          {
+            dimension: "Communication Skills",
+            description: "How clearly you explain ideas",
+            percentage: 82,
+          },
+          {
+            dimension: "Verbal Fluency",
+            description: "Smoothness and pace of delivery",
+            percentage: 78,
+          },
+          {
+            dimension: "Clarity of Thought",
+            description: "Order and focus of your reasoning",
+            percentage: 80,
+          },
+          {
+            dimension: "Analytical & Problem-Solving Ability",
+            description: "Structure of your approach",
+            percentage: 76,
+          },
+          {
+            dimension: "Knowledge & Awareness",
+            description: "Accuracy of technical reasoning",
+            percentage: 72,
+          },
+          {
+            dimension: "Confidence",
+            description: "Confidence in situational answers",
+            percentage: 74,
+          },
+          {
+            dimension: "Leadership & Initiative",
+            description: "Ownership shown in examples",
+            percentage: 68,
+          },
+          {
+            dimension: "Emotional Maturity",
+            description: "Composure under pressure",
+            percentage: 77,
+          },
+          {
+            dimension: "Teamwork & Interpersonal Skills",
+            description: "How you work with others",
+            percentage: 81,
+          },
+          {
+            dimension: "Motivation & Fit",
+            description: "Alignment with role and values",
+            percentage: 79,
+          },
         ],
         improvements: [
-          { panelist: "maya", name: "Maya", remark: "Tighten your STAR closes — land the result before adding context." },
-          { panelist: "albert", name: "Albert", remark: "State the trade-off you rejected, not just the one you picked." },
+          {
+            panelist: "maya",
+            name: "Maya",
+            remark: "Tighten your STAR closes — land the result before adding context.",
+          },
+          {
+            panelist: "albert",
+            name: "Albert",
+            remark: "State the trade-off you rejected, not just the one you picked.",
+          },
         ],
         swot: {
           strengths: "Clear, structured answers with concrete project evidence.",
@@ -772,16 +1022,56 @@ const INTERVIEW_REMARK: Record<string, string> = {
 
 function computeInterviewAnalysis(i: MockInterviewDetail): MockInterviewAnalysis {
   const metrics = [
-    { dimension: "Communication Skills", description: "How clearly you explain ideas", percentage: 74 + (i.message_count % 15) },
-    { dimension: "Verbal Fluency", description: "Smoothness and pace of delivery", percentage: 70 + ((i.message_count * 2) % 18) },
-    { dimension: "Clarity of Thought", description: "Order and focus of your reasoning", percentage: 72 + ((i.message_count * 5) % 20) },
-    { dimension: "Analytical & Problem-Solving Ability", description: "Structure of your approach", percentage: 66 + ((i.message_count * 3) % 22) },
-    { dimension: "Knowledge & Awareness", description: "Accuracy of technical reasoning", percentage: 68 + ((i.message_count * 7) % 20) },
-    { dimension: "Confidence", description: "Confidence in situational answers", percentage: 63 + ((i.message_count * 7) % 24) },
-    { dimension: "Leadership & Initiative", description: "Ownership shown in examples", percentage: 64 + ((i.message_count * 11) % 22) },
-    { dimension: "Emotional Maturity", description: "Composure under pressure", percentage: 70 + ((i.message_count * 13) % 18) },
-    { dimension: "Teamwork & Interpersonal Skills", description: "How you work with others", percentage: 72 + ((i.message_count * 17) % 16) },
-    { dimension: "Motivation & Fit", description: "Alignment with role and values", percentage: 60 + ((i.message_count * 11) % 28) },
+    {
+      dimension: "Communication Skills",
+      description: "How clearly you explain ideas",
+      percentage: 74 + (i.message_count % 15),
+    },
+    {
+      dimension: "Verbal Fluency",
+      description: "Smoothness and pace of delivery",
+      percentage: 70 + ((i.message_count * 2) % 18),
+    },
+    {
+      dimension: "Clarity of Thought",
+      description: "Order and focus of your reasoning",
+      percentage: 72 + ((i.message_count * 5) % 20),
+    },
+    {
+      dimension: "Analytical & Problem-Solving Ability",
+      description: "Structure of your approach",
+      percentage: 66 + ((i.message_count * 3) % 22),
+    },
+    {
+      dimension: "Knowledge & Awareness",
+      description: "Accuracy of technical reasoning",
+      percentage: 68 + ((i.message_count * 7) % 20),
+    },
+    {
+      dimension: "Confidence",
+      description: "Confidence in situational answers",
+      percentage: 63 + ((i.message_count * 7) % 24),
+    },
+    {
+      dimension: "Leadership & Initiative",
+      description: "Ownership shown in examples",
+      percentage: 64 + ((i.message_count * 11) % 22),
+    },
+    {
+      dimension: "Emotional Maturity",
+      description: "Composure under pressure",
+      percentage: 70 + ((i.message_count * 13) % 18),
+    },
+    {
+      dimension: "Teamwork & Interpersonal Skills",
+      description: "How you work with others",
+      percentage: 72 + ((i.message_count * 17) % 16),
+    },
+    {
+      dimension: "Motivation & Fit",
+      description: "Alignment with role and values",
+      percentage: 60 + ((i.message_count * 11) % 28),
+    },
   ];
   const overall = Math.round(
     metrics.reduce((sum, metric) => sum + metric.percentage, 0) / metrics.length,
@@ -874,79 +1164,233 @@ function gdChatReply(topic: string, speakerIndex: number): GdChatMessage & { nam
 
 // ── Question modules (APLR / Technical / DSA / Basic Math / Situational) ─
 
-type Question = { category: string; category_label: string; question: string; answer: string; solution: string };
+type Question = {
+  category: string;
+  category_label: string;
+  question: string;
+  answer: string;
+  solution: string;
+};
 
 const QUESTION_BANKS: Record<string, Record<string, Question[]>> = {
   aplr: {
     quantitative: [
-      { category: "quantitative", category_label: "Quantitative Aptitude", question: "A train 240 m long crosses a pole in 16 seconds. What is its speed in km/h?", answer: "54", solution: "Speed = distance/time = 240/16 = 15 m/s. 15 × 18/5 = 54 km/h." },
-      { category: "quantitative", category_label: "Quantitative Aptitude", question: "If the price of an item rises by 25%, by what % should consumption reduce so that spending stays the same?", answer: "20", solution: "Reduce = 25/125 × 100 = 20%." },
+      {
+        category: "quantitative",
+        category_label: "Quantitative Aptitude",
+        question: "A train 240 m long crosses a pole in 16 seconds. What is its speed in km/h?",
+        answer: "54",
+        solution: "Speed = distance/time = 240/16 = 15 m/s. 15 × 18/5 = 54 km/h.",
+      },
+      {
+        category: "quantitative",
+        category_label: "Quantitative Aptitude",
+        question:
+          "If the price of an item rises by 25%, by what % should consumption reduce so that spending stays the same?",
+        answer: "20",
+        solution: "Reduce = 25/125 × 100 = 20%.",
+      },
     ],
     logical_reasoning: [
-      { category: "logical_reasoning", category_label: "Logical Reasoning", question: "All roses are flowers. Some flowers fade quickly. Which conclusion must follow?", answer: "Some roses may fade quickly", solution: "Roses ⊆ Flowers, and only 'some flowers' fade — so some roses MAY fade but it is not certain." },
+      {
+        category: "logical_reasoning",
+        category_label: "Logical Reasoning",
+        question: "All roses are flowers. Some flowers fade quickly. Which conclusion must follow?",
+        answer: "Some roses may fade quickly",
+        solution:
+          "Roses ⊆ Flowers, and only 'some flowers' fade — so some roses MAY fade but it is not certain.",
+      },
     ],
     verbal: [
-      { category: "verbal", category_label: "Verbal Ability", question: "Fill in the blank: The committee was ___ of the chairman's proposal.", answer: "approving", solution: "'Approve of' takes the -ing form in context here: 'was approving of'." },
+      {
+        category: "verbal",
+        category_label: "Verbal Ability",
+        question: "Fill in the blank: The committee was ___ of the chairman's proposal.",
+        answer: "approving",
+        solution: "'Approve of' takes the -ing form in context here: 'was approving of'.",
+      },
     ],
     puzzle: [
-      { category: "puzzle", category_label: "Puzzles", question: "A clock shows 3:15. What is the angle between the hour and minute hands?", answer: "7.5", solution: "Minute hand at 90°. Hour hand = 90 + 15×0.5 = 97.5°. Difference = 7.5°." },
+      {
+        category: "puzzle",
+        category_label: "Puzzles",
+        question: "A clock shows 3:15. What is the angle between the hour and minute hands?",
+        answer: "7.5",
+        solution: "Minute hand at 90°. Hour hand = 90 + 15×0.5 = 97.5°. Difference = 7.5°.",
+      },
     ],
   },
   technical: {
     basics: [
-      { category: "basics", category_label: "Basics", question: "What is the difference between an interface and an abstract class in Java?", answer: "Interface is all-abstract; abstract class can have state", solution: "Interfaces define contracts; abstract classes can carry fields and partial implementations." },
+      {
+        category: "basics",
+        category_label: "Basics",
+        question: "What is the difference between an interface and an abstract class in Java?",
+        answer: "Interface is all-abstract; abstract class can have state",
+        solution:
+          "Interfaces define contracts; abstract classes can carry fields and partial implementations.",
+      },
     ],
     arrays_strings: [
-      { category: "arrays_strings", category_label: "Arrays & Strings", question: "Given an array, how do you find the maximum product subarray in O(n)?", answer: "Kadane-style two-pass tracking", solution: "Track current max and min (negatives flip sign) and update the global max at each step in a single pass." },
+      {
+        category: "arrays_strings",
+        category_label: "Arrays & Strings",
+        question: "Given an array, how do you find the maximum product subarray in O(n)?",
+        answer: "Kadane-style two-pass tracking",
+        solution:
+          "Track current max and min (negatives flip sign) and update the global max at each step in a single pass.",
+      },
     ],
     searching_sorting: [
-      { category: "searching_sorting", category_label: "Searching & Sorting", question: "When is merge sort preferred over quicksort in practice?", answer: "Stable sort or guaranteed O(n log n)", solution: "Merge sort is stable and worst-case O(n log n); quick sort is usually faster but worst-case O(n²)." },
+      {
+        category: "searching_sorting",
+        category_label: "Searching & Sorting",
+        question: "When is merge sort preferred over quicksort in practice?",
+        answer: "Stable sort or guaranteed O(n log n)",
+        solution:
+          "Merge sort is stable and worst-case O(n log n); quick sort is usually faster but worst-case O(n²).",
+      },
     ],
     recursion: [
-      { category: "recursion", category_label: "Recursion", question: "Write the base case thinking for computing Fibonacci numbers.", answer: "f(0)=0, f(1)=1", solution: "Base cases return immediately; otherwise return f(n-1)+f(n-2)." },
+      {
+        category: "recursion",
+        category_label: "Recursion",
+        question: "Write the base case thinking for computing Fibonacci numbers.",
+        answer: "f(0)=0, f(1)=1",
+        solution: "Base cases return immediately; otherwise return f(n-1)+f(n-2).",
+      },
     ],
   },
   dsa: {
     arrays_strings: [
-      { category: "arrays_strings", category_label: "Arrays & Strings", question: "Find the majority element (appears > n/2 times) in linear time and constant space.", answer: "Boyer-Moore", solution: "Maintain a candidate and a count; cancel pairs, then verify the candidate against the array." },
+      {
+        category: "arrays_strings",
+        category_label: "Arrays & Strings",
+        question:
+          "Find the majority element (appears > n/2 times) in linear time and constant space.",
+        answer: "Boyer-Moore",
+        solution:
+          "Maintain a candidate and a count; cancel pairs, then verify the candidate against the array.",
+      },
     ],
     hash_maps: [
-      { category: "hash_maps", category_label: "Hash Maps", question: "Check if two strings are anagrams using a hash map.", answer: "Character counts equal", solution: "Count chars of the first, decrement with the second; all counts zero means anagram." },
+      {
+        category: "hash_maps",
+        category_label: "Hash Maps",
+        question: "Check if two strings are anagrams using a hash map.",
+        answer: "Character counts equal",
+        solution:
+          "Count chars of the first, decrement with the second; all counts zero means anagram.",
+      },
     ],
     trees: [
-      { category: "trees", category_label: "Trees", question: "How do you determine the height of a binary tree?", answer: "max(left,right)+1", solution: "Recursively: height = 1 + max(height(left), height(right)), base case null = 0." },
+      {
+        category: "trees",
+        category_label: "Trees",
+        question: "How do you determine the height of a binary tree?",
+        answer: "max(left,right)+1",
+        solution: "Recursively: height = 1 + max(height(left), height(right)), base case null = 0.",
+      },
     ],
     dynamic_programming: [
-      { category: "dynamic_programming", category_label: "Dynamic Programming", question: "State the recurrence for the 0/1 knapsack problem.", answer: "dp[i][w] = max(dp[i-1][w], val[i]+dp[i-1][w-wt[i]])", solution: "Either skip the item or take it if weight allows — the classic decision recurrence." },
+      {
+        category: "dynamic_programming",
+        category_label: "Dynamic Programming",
+        question: "State the recurrence for the 0/1 knapsack problem.",
+        answer: "dp[i][w] = max(dp[i-1][w], val[i]+dp[i-1][w-wt[i]])",
+        solution:
+          "Either skip the item or take it if weight allows — the classic decision recurrence.",
+      },
     ],
   },
   "basic-math": {
     percentage: [
-      { category: "percentage", category_label: "Percentage", question: "A student scored 420 out of 600. What is the percentage?", answer: "70", solution: "420/600 × 100 = 70%." },
-      { category: "percentage", category_label: "Percentage", question: "After a 20% discount, a laptop costs ₹32,000. What was the original price?", answer: "40000", solution: "80% of price = 32000 → price = 32000 × 100/80 = ₹40,000." },
+      {
+        category: "percentage",
+        category_label: "Percentage",
+        question: "A student scored 420 out of 600. What is the percentage?",
+        answer: "70",
+        solution: "420/600 × 100 = 70%.",
+      },
+      {
+        category: "percentage",
+        category_label: "Percentage",
+        question: "After a 20% discount, a laptop costs ₹32,000. What was the original price?",
+        answer: "40000",
+        solution: "80% of price = 32000 → price = 32000 × 100/80 = ₹40,000.",
+      },
     ],
     ratio_average: [
-      { category: "ratio_average", category_label: "Ratio & Average", question: "The average of 5 numbers is 22. If one number is removed, the average drops to 20. Which number was removed?", answer: "30", solution: "Sum1 = 110, sum2 = 80, removed = 30." },
+      {
+        category: "ratio_average",
+        category_label: "Ratio & Average",
+        question:
+          "The average of 5 numbers is 22. If one number is removed, the average drops to 20. Which number was removed?",
+        answer: "30",
+        solution: "Sum1 = 110, sum2 = 80, removed = 30.",
+      },
     ],
     fractions_decimals: [
-      { category: "fractions_decimals", category_label: "Fractions & Decimals", question: "Which is larger: 3/7 or 4/9?", answer: "3/7", solution: "Cross-multiply: 3×9 = 27 vs 4×7 = 28? Wait 27 < 28, so 4/9 is larger. 3/7 ≈ 0.428 vs 4/9 ≈ 0.444 → 4/9 larger." },
+      {
+        category: "fractions_decimals",
+        category_label: "Fractions & Decimals",
+        question: "Which is larger: 3/7 or 4/9?",
+        answer: "3/7",
+        solution:
+          "Cross-multiply: 3×9 = 27 vs 4×7 = 28? Wait 27 < 28, so 4/9 is larger. 3/7 ≈ 0.428 vs 4/9 ≈ 0.444 → 4/9 larger.",
+      },
     ],
     mental_math: [
-      { category: "mental_math", category_label: "Mental Math", question: "Compute 15% of 340 in your head.", answer: "51", solution: "10% = 34, 5% = 17, total 51." },
+      {
+        category: "mental_math",
+        category_label: "Mental Math",
+        question: "Compute 15% of 340 in your head.",
+        answer: "51",
+        solution: "10% = 34, 5% = 17, total 51.",
+      },
     ],
   },
   situational: {
     workplace_conflict: [
-      { category: "workplace_conflict", category_label: "Workplace Conflict", question: "A teammate keeps missing deadlines, pushing work to you. How do you handle it?", answer: "Private check-in first", solution: "Raise it privately, understand the cause, reset expectations, then escalate only if unchanged — not about the person but the outcome." },
+      {
+        category: "workplace_conflict",
+        category_label: "Workplace Conflict",
+        question: "A teammate keeps missing deadlines, pushing work to you. How do you handle it?",
+        answer: "Private check-in first",
+        solution:
+          "Raise it privately, understand the cause, reset expectations, then escalate only if unchanged — not about the person but the outcome.",
+      },
     ],
     leadership_dilemma: [
-      { category: "leadership_dilemma", category_label: "Leadership Dilemma", question: "Your team is split on approach and time is short. How do you decide next steps?", answer: "Decide with rationale", solution: "Surface both views, pick the lower-risk option that can be reversed, and communicate why — decisiveness with reasoning." },
+      {
+        category: "leadership_dilemma",
+        category_label: "Leadership Dilemma",
+        question: "Your team is split on approach and time is short. How do you decide next steps?",
+        answer: "Decide with rationale",
+        solution:
+          "Surface both views, pick the lower-risk option that can be reversed, and communicate why — decisiveness with reasoning.",
+      },
     ],
     decision_making: [
-      { category: "decision_making", category_label: "Decision Making", question: "You get two offers: safer small company vs riskier startup. What is your decision framework?", answer: "Align with goals & risk appetite", solution: "Map each to your career goals, learning curve and risk tolerance, then commit without second-guessing." },
+      {
+        category: "decision_making",
+        category_label: "Decision Making",
+        question:
+          "You get two offers: safer small company vs riskier startup. What is your decision framework?",
+        answer: "Align with goals & risk appetite",
+        solution:
+          "Map each to your career goals, learning curve and risk tolerance, then commit without second-guessing.",
+      },
     ],
     ethical_dilemma: [
-      { category: "ethical_dilemma", category_label: "Ethical Dilemma", question: "You spot a teammate inflating their work report. What do you do?", answer: "Address directly then report", solution: "First raise it with the person, keep the incident factual, and escalate through the right channel if it continues." },
+      {
+        category: "ethical_dilemma",
+        category_label: "Ethical Dilemma",
+        question: "You spot a teammate inflating their work report. What do you do?",
+        answer: "Address directly then report",
+        solution:
+          "First raise it with the person, keep the incident factual, and escalate through the right channel if it continues.",
+      },
     ],
   },
 };
@@ -997,13 +1441,17 @@ function pickQuestion(key: ModuleKey, category?: string): Question {
   const cat = category && bank[category] ? category : MODULE_FALLBACK_CATEGORY[key];
   const pool = bank[cat] ?? [];
   const used = new Set(questionSessions(key).map((s) => s.question));
-  return pool.find((q) => !used.has(q.question)) ?? pool[0] ?? {
-    category: cat,
-    category_label: cat,
-    question: "Describe how you would break down an unfamiliar problem.",
-    answer: "Break into sub-problems",
-    solution: "Identify inputs/outputs, edge cases, then the simplest correct approach and its time complexity.",
-  };
+  return (
+    pool.find((q) => !used.has(q.question)) ??
+    pool[0] ?? {
+      category: cat,
+      category_label: cat,
+      question: "Describe how you would break down an unfamiliar problem.",
+      answer: "Break into sub-problems",
+      solution:
+        "Identify inputs/outputs, edge cases, then the simplest correct approach and its time complexity.",
+    }
+  );
 }
 
 function demoInterviewReply(): string {
@@ -1022,12 +1470,33 @@ const COMM_KEY = "sandbox.comm";
 
 function seededCommSessions(): CommunicationTrainingSession[] {
   const metrics: Record<string, number> = {
-    clarity: 82, fluency: 78, grammar: 84, vocabulary: 79, pronunciation: 81, confidence: 74,
-    answer_structure: 76, relevance: 83, speaking_rate: 72, pause_frequency: 68, average_pause_duration: 66,
-    filler_words: 71, repeated_words: 75, sentence_restarts: 77, intonation: 80, speech_rhythm: 78,
-    voice_modulation: 76, listening_skills: 84, response_quality: 79, professional_tone: 85,
-    conversational_skills: 80, vocabulary_diversity: 78, grammar_error_count: 6, pronunciation_accuracy: 83,
-    communication_score: 79, workplace_communication_readiness: 81, interview_readiness: 80,
+    clarity: 82,
+    fluency: 78,
+    grammar: 84,
+    vocabulary: 79,
+    pronunciation: 81,
+    confidence: 74,
+    answer_structure: 76,
+    relevance: 83,
+    speaking_rate: 72,
+    pause_frequency: 68,
+    average_pause_duration: 66,
+    filler_words: 71,
+    repeated_words: 75,
+    sentence_restarts: 77,
+    intonation: 80,
+    speech_rhythm: 78,
+    voice_modulation: 76,
+    listening_skills: 84,
+    response_quality: 79,
+    professional_tone: 85,
+    conversational_skills: 80,
+    vocabulary_diversity: 78,
+    grammar_error_count: 6,
+    pronunciation_accuracy: 83,
+    communication_score: 79,
+    workplace_communication_readiness: 81,
+    interview_readiness: 80,
     improvement_rate: 12,
   };
   return [
@@ -1045,8 +1514,16 @@ function seededCommSessions(): CommunicationTrainingSession[] {
       ai_recommendations: "Practise the STAR format aloud three times before interviews.",
       practice_priorities: "Record yourself weekly and count filler words.",
       transcript: [
-        { role: "user", content: "Tell me about yourself.", created_at: `${BATCH_YEAR}-08-18T08:31:00Z` },
-        { role: "assistant", content: "I'm a final-year Computer Engineering student..." , created_at: `${BATCH_YEAR}-08-18T08:34:00Z` },
+        {
+          role: "user",
+          content: "Tell me about yourself.",
+          created_at: `${BATCH_YEAR}-08-18T08:31:00Z`,
+        },
+        {
+          role: "assistant",
+          content: "I'm a final-year Computer Engineering student...",
+          created_at: `${BATCH_YEAR}-08-18T08:34:00Z`,
+        },
       ],
     },
   ];
@@ -1059,12 +1536,34 @@ function commSessions(): CommunicationTrainingSession[] {
 
 function commMetrics(): Record<string, number> {
   const base: Record<string, number> = {
-    clarity: 80, fluency: 78, grammar: 82, vocabulary: 79, pronunciation: 80, confidence: 76,
-    answer_structure: 75, relevance: 81, speaking_rate: 73, pause_frequency: 70, average_pause_duration: 68,
-    filler_words: 72, repeated_words: 76, sentence_restarts: 78, intonation: 79, speech_rhythm: 77,
-    voice_modulation: 77, listening_skills: 83, response_quality: 80, professional_tone: 84,
-    conversational_skills: 79, vocabulary_diversity: 78, grammar_error_count: 7, pronunciation_accuracy: 82,
-    communication_score: 79, workplace_communication_readiness: 80, interview_readiness: 79, improvement_rate: 10,
+    clarity: 80,
+    fluency: 78,
+    grammar: 82,
+    vocabulary: 79,
+    pronunciation: 80,
+    confidence: 76,
+    answer_structure: 75,
+    relevance: 81,
+    speaking_rate: 73,
+    pause_frequency: 70,
+    average_pause_duration: 68,
+    filler_words: 72,
+    repeated_words: 76,
+    sentence_restarts: 78,
+    intonation: 79,
+    speech_rhythm: 77,
+    voice_modulation: 77,
+    listening_skills: 83,
+    response_quality: 80,
+    professional_tone: 84,
+    conversational_skills: 79,
+    vocabulary_diversity: 78,
+    grammar_error_count: 7,
+    pronunciation_accuracy: 82,
+    communication_score: 79,
+    workplace_communication_readiness: 80,
+    interview_readiness: 79,
+    improvement_rate: 10,
   };
   return base;
 }
@@ -1082,19 +1581,42 @@ function seededEnglishSessions(): EnglishTrainingSession[] {
       finalized_at: `${BATCH_YEAR}-08-16T09:00:00Z`,
       created_at: `${BATCH_YEAR}-08-16T08:30:00Z`,
       updated_at: `${BATCH_YEAR}-08-16T09:00:00Z`,
-      clarity: 84, structure: 82, grammar: 85, vocabulary: 80, spelling: 88, conciseness: 78,
-      task_focus: 86, professional_tone: 83, writing_score: 83,
+      clarity: 84,
+      structure: 82,
+      grammar: 85,
+      vocabulary: 80,
+      spelling: 88,
+      conciseness: 78,
+      task_focus: 86,
+      professional_tone: 83,
+      writing_score: 83,
       strengths: "Clear organisation and accurate grammar.",
       areas_for_improvement: "Use more precise vocabulary; vary sentence length.",
-      ai_recommendations: "Rewrite your last answer without starting consecutive sentences the same way.",
+      ai_recommendations:
+        "Rewrite your last answer without starting consecutive sentences the same way.",
       recurring_mistakes: "Occasional run-on sentences.",
       mistakes: [
-        { turn_index: 1, category: "Grammar", original: "Our campus have a library.", corrected: "Our campus has a library.", explanation: "Subject–verb agreement: campus (singular) takes 'has'." },
+        {
+          turn_index: 1,
+          category: "Grammar",
+          original: "Our campus have a library.",
+          corrected: "Our campus has a library.",
+          explanation: "Subject–verb agreement: campus (singular) takes 'has'.",
+        },
       ],
       mistake_count: 1,
       transcript: [
-        { role: "user", content: "Describe your college campus in 4-5 sentences.", created_at: `${BATCH_YEAR}-08-16T08:31:00Z` },
-        { role: "assistant", content: "Our campus is compact but lively. The central library and open-air amphitheatre are my favourite spots...", created_at: `${BATCH_YEAR}-08-16T08:33:00Z` },
+        {
+          role: "user",
+          content: "Describe your college campus in 4-5 sentences.",
+          created_at: `${BATCH_YEAR}-08-16T08:31:00Z`,
+        },
+        {
+          role: "assistant",
+          content:
+            "Our campus is compact but lively. The central library and open-air amphitheatre are my favourite spots...",
+          created_at: `${BATCH_YEAR}-08-16T08:33:00Z`,
+        },
       ],
     },
   ];
@@ -1113,8 +1635,15 @@ function englishMetrics(): EnglishTrainingSession {
     finalized_at: null,
     created_at: nowIso(),
     updated_at: nowIso(),
-    clarity: 82, structure: 80, grammar: 84, vocabulary: 79, spelling: 87, conciseness: 78,
-    task_focus: 85, professional_tone: 82, writing_score: 82,
+    clarity: 82,
+    structure: 80,
+    grammar: 84,
+    vocabulary: 79,
+    spelling: 87,
+    conciseness: 78,
+    task_focus: 85,
+    professional_tone: 82,
+    writing_score: 82,
     strengths: "Consistent grammar and clear structure.",
     areas_for_improvement: "Broaden vocabulary; avoid repetition.",
     ai_recommendations: "Practise synonyms for common verbs and read aloud daily.",
@@ -1140,7 +1669,8 @@ function allNotifications(): { items: NotificationItem[]; unread: number } {
     })),
     ...seedNotifications.map((n) => ({
       id: n.id,
-      sender: n.category === "System" ? ("TalentBro Platform" as const) : ("Placement Cell" as const),
+      sender:
+        n.category === "System" ? ("TalentBro Platform" as const) : ("Placement Cell" as const),
       title: n.title,
       body: n.body,
       pinned: false,
@@ -1496,11 +2026,7 @@ function interviewStats(path: string) {
   });
   const scoredEntries = entries.filter((e) => e.analysis !== null);
   const avgScore = (rows: typeof entries) =>
-    meanPlus(
-      rows
-        .map((r) => r.analysis?.overall_score ?? 0)
-        .filter((value) => value > 0),
-    );
+    meanPlus(rows.map((r) => r.analysis?.overall_score ?? 0).filter((value) => value > 0));
   const groupBy = (key: "company_name" | "role") => {
     const map = new Map<string, typeof entries>();
     for (const entry of entries) {
@@ -1582,41 +2108,120 @@ const CODING_LANGUAGE_LABELS: Record<string, string> = {
 
 const CODING_BANKS: Record<string, Question[]> = {
   python: [
-    { category: "python", category_label: "Python", question: "Write a function that returns the second largest distinct number in a list.", answer: "sort unique then take index -2", solution: "sorted(set(nums))[-2] after checking length ≥ 2 — O(n log n) time, O(n) space." },
-    { category: "python", category_label: "Python", question: "How would you count the frequency of each word in a sentence in one line?", answer: "Counter(sentence.split())", solution: "collections.Counter(sentence.split()) returns a dict-like frequency map." },
+    {
+      category: "python",
+      category_label: "Python",
+      question: "Write a function that returns the second largest distinct number in a list.",
+      answer: "sort unique then take index -2",
+      solution: "sorted(set(nums))[-2] after checking length ≥ 2 — O(n log n) time, O(n) space.",
+    },
+    {
+      category: "python",
+      category_label: "Python",
+      question: "How would you count the frequency of each word in a sentence in one line?",
+      answer: "Counter(sentence.split())",
+      solution: "collections.Counter(sentence.split()) returns a dict-like frequency map.",
+    },
   ],
   c: [
-    { category: "c", category_label: "C", question: "Write a C snippet that reverses a null-terminated string in place.", answer: "two pointers swap", solution: "Point at both ends, swap while left < right, then advance towards the middle." },
+    {
+      category: "c",
+      category_label: "C",
+      question: "Write a C snippet that reverses a null-terminated string in place.",
+      answer: "two pointers swap",
+      solution: "Point at both ends, swap while left < right, then advance towards the middle.",
+    },
   ],
   cpp: [
-    { category: "cpp", category_label: "C++", question: "How do you check whether a string is a palindrome in C++?", answer: "std::equal with rbegin", solution: "std::equal(s.begin(), s.begin() + s.size()/2, s.rbegin()) compares halves." },
+    {
+      category: "cpp",
+      category_label: "C++",
+      question: "How do you check whether a string is a palindrome in C++?",
+      answer: "std::equal with rbegin",
+      solution: "std::equal(s.begin(), s.begin() + s.size()/2, s.rbegin()) compares halves.",
+    },
   ],
   r: [
-    { category: "r", category_label: "R", question: "How do you compute the mean of a numeric vector while ignoring NA values?", answer: "mean(x, na.rm = TRUE)", solution: "The na.rm argument drops missing values before averaging." },
+    {
+      category: "r",
+      category_label: "R",
+      question: "How do you compute the mean of a numeric vector while ignoring NA values?",
+      answer: "mean(x, na.rm = TRUE)",
+      solution: "The na.rm argument drops missing values before averaging.",
+    },
   ],
   go: [
-    { category: "go", category_label: "Go", question: "How do you safely send on a channel after it may have been closed?", answer: "use select with a done channel", solution: "Select between the send and a cancellation signal, or use a sync.Once to close exactly once." },
+    {
+      category: "go",
+      category_label: "Go",
+      question: "How do you safely send on a channel after it may have been closed?",
+      answer: "use select with a done channel",
+      solution:
+        "Select between the send and a cancellation signal, or use a sync.Once to close exactly once.",
+    },
   ],
   java: [
-    { category: "java", category_label: "Java", question: "How do you reverse a string in Java without extra library helpers?", answer: "StringBuilder reverse", solution: "new StringBuilder(input).reverse().toString() — O(n) time and space." },
+    {
+      category: "java",
+      category_label: "Java",
+      question: "How do you reverse a string in Java without extra library helpers?",
+      answer: "StringBuilder reverse",
+      solution: "new StringBuilder(input).reverse().toString() — O(n) time and space.",
+    },
   ],
   javascript: [
-    { category: "javascript", category_label: "JavaScript", question: "Write a one-liner that flattens a nested array by one level.", answer: "arr.flat()", solution: "Array.prototype.flat(1) flattens one level; pass Infinity for full depth." },
+    {
+      category: "javascript",
+      category_label: "JavaScript",
+      question: "Write a one-liner that flattens a nested array by one level.",
+      answer: "arr.flat()",
+      solution: "Array.prototype.flat(1) flattens one level; pass Infinity for full depth.",
+    },
   ],
   php: [
-    { category: "php", category_label: "PHP", question: "How do you remove duplicate values from a PHP array?", answer: "array_unique", solution: "array_unique($arr) keeps the first occurrence of each value." },
+    {
+      category: "php",
+      category_label: "PHP",
+      question: "How do you remove duplicate values from a PHP array?",
+      answer: "array_unique",
+      solution: "array_unique($arr) keeps the first occurrence of each value.",
+    },
   ],
   rust: [
-    { category: "rust", category_label: "Rust", question: "How do you swap two mutable variables in Rust safely?", answer: "std::mem::swap", solution: "std::mem::swap(&mut a, &mut b) swaps values without cloning." },
+    {
+      category: "rust",
+      category_label: "Rust",
+      question: "How do you swap two mutable variables in Rust safely?",
+      answer: "std::mem::swap",
+      solution: "std::mem::swap(&mut a, &mut b) swaps values without cloning.",
+    },
   ],
   sql: [
-    { category: "sql", category_label: "SQL", question: "Write a query that returns the second highest salary from an employees table.", answer: "SELECT MAX(salary) ... WHERE salary < (SELECT MAX(salary) ...)", solution: "Use a subquery to exclude the highest salary, then take the max of the remainder." },
+    {
+      category: "sql",
+      category_label: "SQL",
+      question: "Write a query that returns the second highest salary from an employees table.",
+      answer: "SELECT MAX(salary) ... WHERE salary < (SELECT MAX(salary) ...)",
+      solution: "Use a subquery to exclude the highest salary, then take the max of the remainder.",
+    },
   ],
   swift: [
-    { category: "swift", category_label: "Swift", question: "How do you safely unwrap an optional in Swift?", answer: "if let or guard let", solution: "if let value = optional { ... } or guard let value = optional else { return }." },
+    {
+      category: "swift",
+      category_label: "Swift",
+      question: "How do you safely unwrap an optional in Swift?",
+      answer: "if let or guard let",
+      solution: "if let value = optional { ... } or guard let value = optional else { return }.",
+    },
   ],
   julia: [
-    { category: "julia", category_label: "Julia", question: "How do you broadcast a function over a vector in Julia?", answer: "f.(vector)", solution: "The dot syntax f.(v) applies f element-wise without an explicit loop." },
+    {
+      category: "julia",
+      category_label: "Julia",
+      question: "How do you broadcast a function over a vector in Julia?",
+      answer: "f.(vector)",
+      solution: "The dot syntax f.(v) applies f element-wise without an explicit loop.",
+    },
   ],
 };
 
@@ -1675,11 +2280,58 @@ const READING_BANK: ReadingPassage[] = [
       { word: "accumulate", meaning: "to gather or build up over time" },
     ],
     questions: [
-      { question: "According to the passage, what strengthens a habit?", options: ["Avoiding rewards", "Repetition of cue, routine and reward", "Making more deliberate decisions", "Changing the environment daily"], answer_index: 1, explanation: "The passage says repetition strengthens the link between cue, routine and reward." },
-      { question: "Why does the brain automate repeated actions?", options: ["To create new habits", "To conserve effort", "To avoid rewards", "To increase intensity"], answer_index: 1, explanation: "The passage states the brain conserves effort by automating repeated actions." },
-      { question: "The author's attitude towards changing habits is best described as…", options: ["Pessimistic", "Indifferent", "Hopeful", "Confused"], answer_index: 2, explanation: "The phrase 'habits are not destiny' signals a hopeful view." },
-      { question: "Which of these is NOT mentioned as a way to replace a habit?", options: ["Changing the cue", "Changing the reward", "Replacing the routine", "Ignoring the habit entirely"], answer_index: 3, explanation: "The passage mentions changing the cue or reward, not ignoring the habit." },
-      { question: "What does the word 'accumulate' mean in the passage?", options: ["To disappear quickly", "To build up over time", "To repeat intensely", "To conserve energy"], answer_index: 1, explanation: "Accumulate means to gather or build up gradually." },
+      {
+        question: "According to the passage, what strengthens a habit?",
+        options: [
+          "Avoiding rewards",
+          "Repetition of cue, routine and reward",
+          "Making more deliberate decisions",
+          "Changing the environment daily",
+        ],
+        answer_index: 1,
+        explanation:
+          "The passage says repetition strengthens the link between cue, routine and reward.",
+      },
+      {
+        question: "Why does the brain automate repeated actions?",
+        options: [
+          "To create new habits",
+          "To conserve effort",
+          "To avoid rewards",
+          "To increase intensity",
+        ],
+        answer_index: 1,
+        explanation:
+          "The passage states the brain conserves effort by automating repeated actions.",
+      },
+      {
+        question: "The author's attitude towards changing habits is best described as…",
+        options: ["Pessimistic", "Indifferent", "Hopeful", "Confused"],
+        answer_index: 2,
+        explanation: "The phrase 'habits are not destiny' signals a hopeful view.",
+      },
+      {
+        question: "Which of these is NOT mentioned as a way to replace a habit?",
+        options: [
+          "Changing the cue",
+          "Changing the reward",
+          "Replacing the routine",
+          "Ignoring the habit entirely",
+        ],
+        answer_index: 3,
+        explanation: "The passage mentions changing the cue or reward, not ignoring the habit.",
+      },
+      {
+        question: "What does the word 'accumulate' mean in the passage?",
+        options: [
+          "To disappear quickly",
+          "To build up over time",
+          "To repeat intensely",
+          "To conserve energy",
+        ],
+        answer_index: 1,
+        explanation: "Accumulate means to gather or build up gradually.",
+      },
     ],
   },
   {
@@ -1695,11 +2347,61 @@ const READING_BANK: ReadingPassage[] = [
       { word: "self-sufficient", meaning: "able to survive without outside help" },
     ],
     questions: [
-      { question: "How do urban trees help with temperature?", options: ["By producing rain", "By shading streets", "By absorbing heat into roots", "By blocking wind"], answer_index: 1, explanation: "The passage says trees shade streets, lowering surface temperatures." },
-      { question: "What role do leaves play in air quality?", options: ["They trap dust and absorb pollutants", "They release dust", "They create runoff", "They block sunlight"], answer_index: 0, explanation: "Leaves trap dust and absorb some pollutants." },
-      { question: "According to the passage, trees can reduce stress because…", options: ["They lower energy bills", "They prevent floods", "People can see them from home", "They require planning"], answer_index: 2, explanation: "Studies report lower stress among people who can see trees from their homes." },
-      { question: "Why do young trees need protection?", options: ["They grow too quickly", "They are not yet self-sufficient", "They attract too many people", "They block drains"], answer_index: 1, explanation: "Young trees need water and protection before becoming self-sufficient." },
-      { question: "What does 'runoff' refer to in the passage?", options: ["Water flowing over the ground", "Air pollution", "Tree maintenance", "Energy use"], answer_index: 0, explanation: "Runoff is rainwater that flows over the ground and can overwhelm drains." },
+      {
+        question: "How do urban trees help with temperature?",
+        options: [
+          "By producing rain",
+          "By shading streets",
+          "By absorbing heat into roots",
+          "By blocking wind",
+        ],
+        answer_index: 1,
+        explanation: "The passage says trees shade streets, lowering surface temperatures.",
+      },
+      {
+        question: "What role do leaves play in air quality?",
+        options: [
+          "They trap dust and absorb pollutants",
+          "They release dust",
+          "They create runoff",
+          "They block sunlight",
+        ],
+        answer_index: 0,
+        explanation: "Leaves trap dust and absorb some pollutants.",
+      },
+      {
+        question: "According to the passage, trees can reduce stress because…",
+        options: [
+          "They lower energy bills",
+          "They prevent floods",
+          "People can see them from home",
+          "They require planning",
+        ],
+        answer_index: 2,
+        explanation: "Studies report lower stress among people who can see trees from their homes.",
+      },
+      {
+        question: "Why do young trees need protection?",
+        options: [
+          "They grow too quickly",
+          "They are not yet self-sufficient",
+          "They attract too many people",
+          "They block drains",
+        ],
+        answer_index: 1,
+        explanation: "Young trees need water and protection before becoming self-sufficient.",
+      },
+      {
+        question: "What does 'runoff' refer to in the passage?",
+        options: [
+          "Water flowing over the ground",
+          "Air pollution",
+          "Tree maintenance",
+          "Energy use",
+        ],
+        answer_index: 0,
+        explanation: "Runoff is rainwater that flows over the ground and can overwhelm drains.",
+      },
     ],
   },
 ];
@@ -1747,12 +2449,15 @@ export async function sandboxApiFetch<T = unknown>(
   const body: Record<string, unknown> =
     typeof init.body === "string" && init.body
       ? safeParse(init.body)
-      : (init.body as Record<string, unknown>) ?? {};
+      : ((init.body as Record<string, unknown>) ?? {});
 
   // me()
   if (p === "/auth/me/" && method === "GET") return { user: meUser() } as T;
   if (p === "/auth/csrf/") return { ok: true } as T;
-  if (/^\/auth\/(login|signup|logout|client-onboarding|change-password|delete-account)\/$/.test(p) && method === "POST")
+  if (
+    /^\/auth\/(login|signup|logout|client-onboarding|change-password|delete-account)\/$/.test(p) &&
+    method === "POST"
+  )
     return { user: meUser(), ok: true } as T;
 
   // Profile
@@ -1760,7 +2465,11 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/auth/profile/" && method === "PATCH") return studentProfile() as T;
   if (p === "/auth/verify-id-card/" && method === "POST")
     return {
-      extracted: { name: "AARAV SHARMA", registration_number: "CO22042", college: INSTITUTION_NAME },
+      extracted: {
+        name: "AARAV SHARMA",
+        registration_number: "CO22042",
+        college: INSTITUTION_NAME,
+      },
       checks: {
         name: { matched: true, detail: "Name matches college records." },
         registration_number: { matched: true, detail: "Registration number found." },
@@ -1770,8 +2479,10 @@ export async function sandboxApiFetch<T = unknown>(
     } as T;
 
   // Institution metadata
-  if (p.startsWith("/institutions/companies/")) return { companies: seedCompanies.map((c) => c.name) } as T;
-  if (p.startsWith("/candidate/companies/")) return { companies: seedCompanies.map((c) => c.name) } as T;
+  if (p.startsWith("/institutions/companies/"))
+    return { companies: seedCompanies.map((c) => c.name) } as T;
+  if (p.startsWith("/candidate/companies/"))
+    return { companies: seedCompanies.map((c) => c.name) } as T;
   if (p.startsWith("/institutions/"))
     return { institutions: [{ name: INSTITUTION_NAME, departments: DEPARTMENTS }] } as T;
 
@@ -1782,10 +2493,14 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/companies/" && method === "GET")
     return { companies: seedCompaniesRecords, count: seedCompaniesRecords.length } as T;
   if (p === "/companies/create/" && method === "POST") {
-    const made = { ...seedCompaniesRecords[0], id: Date.now(), company_name: String(body.company_name ?? "Demo Company") };
+    const made = {
+      ...seedCompaniesRecords[0],
+      id: Date.now(),
+      company_name: String(body.company_name ?? "Demo Company"),
+    };
     return { company: made } as T;
   }
-  if (p.startsWith("/students/") && method === "GET") {
+  if (p.startsWith("/students/") && method === "GET" && !/^\/students\/[^/]+\/$/.test(p)) {
     const params = parseQuery(p);
     const query = { ...body, ...params };
     if (typeof query.min_cgpa === "string") query.min_cgpa = Number(query.min_cgpa);
@@ -1793,6 +2508,49 @@ export async function sandboxApiFetch<T = unknown>(
   }
   if (p === "/readiness/leaderboard/" && method === "GET") return leaderboard() as T;
   if (p === "/reports/" && method === "GET") return reportsData() as T;
+  // Launched training targets
+  if (p === "/students-targets/" && method === "GET") return delay(targetsPayload()) as T;
+  if (p === "/students-targets/create/" && method === "POST")
+    return delay({ target: createTarget(body) }) as T;
+  if (/^\/students-targets\/[^/]+\/$/.test(p) && method === "DELETE") {
+    const targetId = p.match(/^\/students-targets\/([^/]+)\/$/)?.[1] ?? "";
+    deleteTarget(targetId);
+    return delay({ ok: true }) as T;
+  }
+
+  // Full student record, activity history and interview evidence
+  if (/^\/students\/([^/]+)\/$/.test(p) && method === "GET") {
+    const studentId = p.match(/^\/students\/([^/]+)\/$/)?.[1] ?? "";
+    return delay({
+      student: studentDetailFor(studentId),
+      activity_url: `/api/student-activity/${studentId}/`,
+    }) as T;
+  }
+  if (/^\/students\/([^/]+)\/messages\/$/.test(p) && method === "GET") {
+    const studentId = p.match(/^\/students\/([^/]+)\/messages\/$/)?.[1] ?? "";
+    return delay(messagesFor(studentId)) as T;
+  }
+  if (/^\/students\/([^/]+)\/messages\/$/.test(p) && method === "POST") {
+    const studentId = p.match(/^\/students\/([^/]+)\/messages\/$/)?.[1] ?? "";
+    const content = typeof body["content"] === "string" ? body["content"].trim() : "";
+    return delay({ message: sendMessageTo(studentId, content) }) as T;
+  }
+  if (/^\/student-activity\/([^/]+)\/$/.test(p) && method === "GET") {
+    const studentId = p.match(/^\/student-activity\/([^/]+)\/$/)?.[1] ?? "";
+    return delay(studentActivityFor(studentId)) as T;
+  }
+  if (/^\/student-interview\/([^/]+)\/evidence\/$/.test(p) && method === "GET") {
+    const interviewId = p.match(/^\/student-interview\/([^/]+)\/evidence\/$/)?.[1] ?? "";
+    return delay(interviewEvidence(interviewId)) as T;
+  }
+  if (/^\/student-question\/([^/]+)\/evidence\/$/.test(p) && method === "GET") {
+    const sessionId = p.match(/^\/student-question\/([^/]+)\/evidence\/$/)?.[1] ?? "";
+    return delay(questionEvidence(sessionId)) as T;
+  }
+  if (/^\/student-english\/([^/]+)\/evidence\/$/.test(p) && method === "GET") {
+    const sessionId = p.match(/^\/student-english\/([^/]+)\/evidence\/$/)?.[1] ?? "";
+    return delay(englishEvidence(sessionId)) as T;
+  }
 
   // Notifications
   if ((p === "/notifications/" || p.startsWith("/notifications/?")) && method === "GET") {
@@ -1911,12 +2669,10 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/roadmap/" && method === "GET") return delay({ roadmap: ROADMAP }) as T;
 
   // Discussion forum
-  if (p.startsWith("/forum/posts/") && method === "GET")
-    return delay(handleForumList(p)) as T;
+  if (p.startsWith("/forum/posts/") && method === "GET") return delay(handleForumList(p)) as T;
   if (p === "/forum/posts/" && method === "POST") {
     const text = typeof body["body"] === "string" ? body["body"].trim() : "";
-    if (!text)
-      throw Object.assign(new Error("Write something before posting."), { status: 400 });
+    if (!text) throw Object.assign(new Error("Write something before posting."), { status: 400 });
     const post: ForumPost = {
       id: uid("forum"),
       body: text,
@@ -1935,15 +2691,28 @@ export async function sandboxApiFetch<T = unknown>(
   }
 
   // Chat
-  if (p === "/chat/" && method === "POST")
-    return delay(handleChatPost(body)) as T;
+  if (p === "/chat/" && method === "POST") return delay(handleChatPost(body)) as T;
   if ((p === "/chat/sessions/" || p.startsWith("/chat/sessions/?")) && method === "GET")
-    return delay(pagedRows(allChats().map(({ messages: _, ...s }) => s), p)) as T;
+    return delay(
+      pagedRows(
+        allChats().map(({ messages: _, ...s }) => s),
+        p,
+      ),
+    ) as T;
   if (/^\/chat\/sessions\/([^/]+)\/(\?.*)?$/.test(p) && method === "GET") {
     const id = p.match(/^\/chat\/sessions\/([^/]+)\/(\?.*)?$/)?.[1] ?? "";
     const session = allChats().find((c) => c.id === id);
     if (!session)
-      return delay({ session: { id, messages: [], title: "Chat", created_at: nowIso(), updated_at: nowIso(), message_count: 0 } }) as T;
+      return delay({
+        session: {
+          id,
+          messages: [],
+          title: "Chat",
+          created_at: nowIso(),
+          updated_at: nowIso(),
+          message_count: 0,
+        },
+      }) as T;
     return delay({ session }) as T;
   }
   if (/^\/chat\/sessions\/([^/]+)\/$/.test(p) && method === "DELETE") {
@@ -1953,7 +2722,8 @@ export async function sandboxApiFetch<T = unknown>(
   }
   if (p === "/chat/summarize/" && method === "POST")
     return delay({
-      summary: "You asked about preparing for the Infosys drive and the aptitude topics to prioritise.",
+      summary:
+        "You asked about preparing for the Infosys drive and the aptitude topics to prioritise.",
       changed: ["preferred_roles"],
     }) as T;
   if (p === "/chat/translate/" && method === "POST") {
@@ -1965,11 +2735,19 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/chat/communication/" && method === "POST") {
     const message = typeof body.message === "string" ? body.message : "";
     const s = commSessions();
-    const existing = typeof body.session_id === "string" ? s.find((x) => x.id === body.session_id) : null;
+    const existing =
+      typeof body.session_id === "string" ? s.find((x) => x.id === body.session_id) : null;
     if (existing) {
-      existing.transcript = [...(existing.transcript ?? []), { role: "user" as const, content: message, created_at: nowIso() }];
+      existing.transcript = [
+        ...(existing.transcript ?? []),
+        { role: "user" as const, content: message, created_at: nowIso() },
+      ];
       saveComm(s);
-      return delay({ reply: demoCommunicationReply(message), session_id: existing.id, title: existing.title }) as T;
+      return delay({
+        reply: demoCommunicationReply(message),
+        session_id: existing.id,
+        title: existing.title,
+      }) as T;
     }
     const session: CommunicationTrainingSession = {
       ...commMetrics(),
@@ -1983,30 +2761,55 @@ export async function sandboxApiFetch<T = unknown>(
     };
     s.unshift(session);
     saveComm(s);
-    return delay({ reply: demoCommunicationReply(message), session_id: session.id, title: session.title }) as T;
+    return delay({
+      reply: demoCommunicationReply(message),
+      session_id: session.id,
+      title: session.title,
+    }) as T;
   }
   if (p === "/chat/communication/turns/" && method === "POST") {
-    const turns = Array.isArray(body.turns) ? (body.turns as { role: string; content: string }[]) : [];
+    const turns = Array.isArray(body.turns)
+      ? (body.turns as { role: string; content: string }[])
+      : [];
     const s = commSessions();
-    const existing = typeof body.session_id === "string" ? s.find((x) => x.id === body.session_id) : null;
+    const existing =
+      typeof body.session_id === "string" ? s.find((x) => x.id === body.session_id) : null;
     if (existing) {
       const session = existing;
       session.transcript = [...(session.transcript ?? [])];
       for (const t of turns) {
-        session.transcript.push({ role: t.role as "user" | "assistant", content: t.content, created_at: nowIso() });
+        session.transcript.push({
+          role: t.role as "user" | "assistant",
+          content: t.content,
+          created_at: nowIso(),
+        });
       }
       session.updated_at = nowIso();
       saveComm(s);
       return delay({ session_id: session.id, title: session.title }) as T;
     }
-    const session: CommunicationTrainingSession = { ...commMetrics(), id: uid("comm"), title: "Communication Training", status: "active", finalized_at: null, created_at: nowIso(), updated_at: nowIso(), transcript: turns.map((t) => ({ role: t.role as "user" | "assistant", content: t.content, created_at: nowIso() })) };
+    const session: CommunicationTrainingSession = {
+      ...commMetrics(),
+      id: uid("comm"),
+      title: "Communication Training",
+      status: "active",
+      finalized_at: null,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+      transcript: turns.map((t) => ({
+        role: t.role as "user" | "assistant",
+        content: t.content,
+        created_at: nowIso(),
+      })),
+    };
     s.unshift(session);
     saveComm(s);
     return delay({ session_id: session.id, title: session.title }) as T;
   }
   if (p === "/chat/communication/finalize/" && method === "POST") {
     const s = commSessions();
-    const existing = typeof body.session_id === "string" ? s.find((x) => x.id === body.session_id) : null;
+    const existing =
+      typeof body.session_id === "string" ? s.find((x) => x.id === body.session_id) : null;
     if (existing) {
       existing.status = "completed";
       existing.finalized_at = nowIso();
@@ -2040,11 +2843,19 @@ export async function sandboxApiFetch<T = unknown>(
   // English / speaking skills
   if (p === "/speaking-skills/start/" && method === "POST") {
     const sessions = englishSessions();
-    const session: EnglishTrainingSession = { ...englishMetrics(), id: uid("eng"), title: "English Trainer", status: "active", created_at: nowIso(), updated_at: nowIso() };
+    const session: EnglishTrainingSession = {
+      ...englishMetrics(),
+      id: uid("eng"),
+      title: "English Trainer",
+      status: "active",
+      created_at: nowIso(),
+      updated_at: nowIso(),
+    };
     sessions.unshift(session);
     saveEng(sessions);
     return delay({
-      reply: "Let's practise: describe your college campus in 4-5 clear sentences. Speak or type your answer.",
+      reply:
+        "Let's practise: describe your college campus in 4-5 clear sentences. Speak or type your answer.",
       reused: false,
       session_id: session.id,
       record: session,
@@ -2052,7 +2863,12 @@ export async function sandboxApiFetch<T = unknown>(
   }
   if (p === "/speaking-skills/chat/" && method === "POST") {
     const msg = typeof body.message === "string" ? body.message : "";
-    return delay({ reply: "Good attempt. Now try one sentence for 'my best achievement', keeping it under 20 words. I'll gently correct any grammar slip.", session_id: "", title: "English Trainer" }) as T;
+    return delay({
+      reply:
+        "Good attempt. Now try one sentence for 'my best achievement', keeping it under 20 words. I'll gently correct any grammar slip.",
+      session_id: "",
+      title: "English Trainer",
+    }) as T;
   }
   if (p === "/speaking-skills/turns/" && method === "POST") return delay({ ok: true }) as T;
   if (p === "/speaking-skills/finalize/" && method === "POST") {
@@ -2061,7 +2877,11 @@ export async function sandboxApiFetch<T = unknown>(
     if (active) {
       active.status = "completed";
       active.finalized_at = nowIso();
-      Object.assign(active, englishMetrics(), { id: active.id, title: active.title, transcript: active.transcript });
+      Object.assign(active, englishMetrics(), {
+        id: active.id,
+        title: active.title,
+        transcript: active.transcript,
+      });
       active.updated_at = nowIso();
       saveEng(sessions);
     }
@@ -2070,7 +2890,27 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/speaking-skills/" && method === "GET") {
     const sessions = englishSessions();
     const latest = sessions[0] ?? englishMetrics();
-    return delay({ record: { practice_count: sessions.length, last_practiced_at: latest.finalized_at, created_at: latest.created_at, updated_at: latest.updated_at, clarity: latest.clarity, structure: latest.structure, grammar: latest.grammar, vocabulary: latest.vocabulary, spelling: latest.spelling, conciseness: latest.conciseness, task_focus: latest.task_focus, professional_tone: latest.professional_tone, writing_score: latest.writing_score, strengths: latest.strengths, areas_for_improvement: latest.areas_for_improvement, ai_recommendations: latest.ai_recommendations, recurring_mistakes: latest.recurring_mistakes } }) as T;
+    return delay({
+      record: {
+        practice_count: sessions.length,
+        last_practiced_at: latest.finalized_at,
+        created_at: latest.created_at,
+        updated_at: latest.updated_at,
+        clarity: latest.clarity,
+        structure: latest.structure,
+        grammar: latest.grammar,
+        vocabulary: latest.vocabulary,
+        spelling: latest.spelling,
+        conciseness: latest.conciseness,
+        task_focus: latest.task_focus,
+        professional_tone: latest.professional_tone,
+        writing_score: latest.writing_score,
+        strengths: latest.strengths,
+        areas_for_improvement: latest.areas_for_improvement,
+        ai_recommendations: latest.ai_recommendations,
+        recurring_mistakes: latest.recurring_mistakes,
+      },
+    }) as T;
   }
   if (p.startsWith("/speaking-skills/history/") && method === "GET") {
     const rows = newestFirst(englishSessions());
@@ -2104,13 +2944,14 @@ export async function sandboxApiFetch<T = unknown>(
     throw Object.assign(new Error("TTS unavailable in the sandbox demo."), { status: 503 });
   }
   if (p === "/chat/communication/transcribe/" && method === "POST") {
-    return delay({ text: "I believe I am a good fit because my project taught me how to work under deadlines." }) as T;
+    return delay({
+      text: "I believe I am a good fit because my project taught me how to work under deadlines.",
+    }) as T;
   }
 
   // Interviews
   if (p.startsWith("/interview/stats/") && method === "GET") return delay(interviewStats(p)) as T;
-  if (p === "/interview/" && method === "GET")
-    return delay({ interviews: mockInterviews() }) as T;
+  if (p === "/interview/" && method === "GET") return delay({ interviews: mockInterviews() }) as T;
   if (p === "/interview/start/" && method === "POST") {
     const interviews = mockInterviews();
     const company = String(body["company_name"] ?? "").trim() || "Persistent Systems";
@@ -2276,7 +3117,8 @@ export async function sandboxApiFetch<T = unknown>(
     const interview = interviews.find((i) => i.id === id);
     if (interview) {
       if (body["status"] === "completed") finalizeMockInterview(interview);
-      if (body["suspection"] === true) interview.suspection = Math.min(100, interview.suspection + 25);
+      if (body["suspection"] === true)
+        interview.suspection = Math.min(100, interview.suspection + 25);
       interview.updated_at = nowIso();
       saveInterviews(interviews);
       return delay({ interview }) as T;
@@ -2290,15 +3132,16 @@ export async function sandboxApiFetch<T = unknown>(
   }
 
   // GD training
-  if (p === "/gd/panelists/" && method === "GET")
-    return delay({ panelists: GD_PANELISTS }) as T;
+  if (p === "/gd/panelists/" && method === "GET") return delay({ panelists: GD_PANELISTS }) as T;
   if (p === "/gd/topic/" && method === "GET") {
     const used = new Set(readJson<GdTrainingRecord[]>(GD_KEY, []).map((s) => s.topic));
     const fresh = GD_TOPICS.find((t) => !used.has(t)) ?? GD_TOPICS[0];
     return delay({ topic: fresh }) as T;
   }
   if (p === "/gd/chat/" && method === "POST") {
-    const transcript = Array.isArray(body.transcript) ? (body.transcript as { name: string; content: string }[]) : [];
+    const transcript = Array.isArray(body.transcript)
+      ? (body.transcript as { name: string; content: string }[])
+      : [];
     return delay(gdChatReply(String(body.topic ?? ""), transcript.length)) as T;
   }
   if (p === "/gd/complete/" && method === "POST") {
@@ -2382,12 +3225,17 @@ export async function sandboxApiFetch<T = unknown>(
     const rows = newestFirst(readJson<GdTrainingRecord[]>(GD_KEY, []));
     return delay({
       ...pagedRows(rows, p),
-      rollup: rows.map((s) => ({ overall_score: s.overall_score ?? null, created_at: s.created_at })),
+      rollup: rows.map((s) => ({
+        overall_score: s.overall_score ?? null,
+        created_at: s.created_at,
+      })),
     }) as T;
   }
   if (/^\/gd\/([^/]+)\/$/.test(p) && method === "GET") {
     const id = p.match(/^\/gd\/([^/]+)\/$/)?.[1] ?? "";
-    return delay({ session: readJson<GdTrainingRecord[]>(GD_KEY, []).find((x) => x.id === id) }) as T;
+    return delay({
+      session: readJson<GdTrainingRecord[]>(GD_KEY, []).find((x) => x.id === id),
+    }) as T;
   }
 
   // Coding assessment
@@ -2435,7 +3283,10 @@ export async function sandboxApiFetch<T = unknown>(
         star_rating: 0,
       }) as T;
     const message = String(body.message ?? "");
-    const normalized = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const normalized = message
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
     session.transcript ??= [];
     if (session.status !== "active") {
       return delay({
@@ -2499,7 +3350,9 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/coding-assessment/skip/" && method === "POST") {
     const sessions = codingSessions();
     const id = typeof body.session_id === "string" ? body.session_id : null;
-    const target = id ? sessions.find((s) => s.id === id) : sessions.find((s) => s.status === "active");
+    const target = id
+      ? sessions.find((s) => s.id === id)
+      : sessions.find((s) => s.status === "active");
     if (target && target.status === "active") {
       target.status = "gave_up";
       target.updated_at = nowIso();
@@ -2584,7 +3437,9 @@ export async function sandboxApiFetch<T = unknown>(
   if (p === "/reading-comprehension/skip/" && method === "POST") {
     const sessions = readingSessions();
     const id = typeof body.session_id === "string" ? body.session_id : null;
-    const target = id ? sessions.find((s) => s.id === id) : sessions.find((s) => s.status === "active");
+    const target = id
+      ? sessions.find((s) => s.id === id)
+      : sessions.find((s) => s.status === "active");
     if (target && target.status === "active") {
       target.status = "gave_up";
       target.updated_at = nowIso();
@@ -2605,7 +3460,8 @@ export async function sandboxApiFetch<T = unknown>(
   for (const key of moduleKeys) {
     if (p === `/${key}/start/` && method === "POST") {
       const sessions = questionSessions(key);
-      const category = typeof body.category === "string" ? body.category : MODULE_FALLBACK_CATEGORY[key];
+      const category =
+        typeof body.category === "string" ? body.category : MODULE_FALLBACK_CATEGORY[key];
       const q = pickQuestion(key, category || undefined);
       const session: QuestionSession = {
         id: uid(key),
@@ -2635,7 +3491,16 @@ export async function sandboxApiFetch<T = unknown>(
     if (p === `/${key}/chat/` && method === "POST") {
       const sessions = questionSessions(key);
       const session = sessions.find((s) => s.id === String(body.session_id ?? ""));
-      if (!session) return delay({ session_id: "", reply: "Session not found.", solved: false, gave_up: false, closed: false, points_awarded: 0, star_rating: 0 }) as T;
+      if (!session)
+        return delay({
+          session_id: "",
+          reply: "Session not found.",
+          solved: false,
+          gave_up: false,
+          closed: false,
+          points_awarded: 0,
+          star_rating: 0,
+        }) as T;
       const answer = String(body.message ?? "");
       session.attempts += 1;
       session.transcript.push({ role: "user", content: answer, created_at: nowIso() });
@@ -2676,7 +3541,9 @@ export async function sandboxApiFetch<T = unknown>(
     if (p === `/${key}/skip/` && method === "POST") {
       const sessions = questionSessions(key);
       const id = typeof body.session_id === "string" ? body.session_id : null;
-      const target = id ? sessions.find((s) => s.id === id) : sessions.find((s) => s.status === "active");
+      const target = id
+        ? sessions.find((s) => s.id === id)
+        : sessions.find((s) => s.status === "active");
       if (target) {
         target.status = "gave_up";
         target.updated_at = nowIso();
@@ -2705,23 +3572,38 @@ function filterStudents(query: Record<string, unknown>): StudentsResponse {
   const sort = typeof query.sort === "string" ? query.sort : "name";
 
   let rows = [...seedStudentsRecords];
-  if (q) rows = rows.filter((s) => s.full_name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
+  if (q)
+    rows = rows.filter(
+      (s) => s.full_name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q),
+    );
   if (dept && dept !== "All") rows = rows.filter((s) => s.department === dept);
   if (status) {
     if (status === "placed") rows = rows.filter((s) => s.placement_status === "placed");
-    else if (status === "applying") rows = rows.filter((s) => s.placement_status === "applying" || s.placement_status === "shortlisted");
-    else if (status === "not_started") rows = rows.filter((s) => s.placement_status === "not_started");
+    else if (status === "applying")
+      rows = rows.filter(
+        (s) => s.placement_status === "applying" || s.placement_status === "shortlisted",
+      );
+    else if (status === "not_started")
+      rows = rows.filter((s) => s.placement_status === "not_started");
   }
   if (minCgpa > 0) rows = rows.filter((s) => (s.cgpa ?? 0) >= minCgpa);
   if (eligible) rows = rows.filter((s) => s.placement_eligible);
 
   rows = rows
     .map((s, i) => {
-      const ranked = [...seedStudentsRecords].sort((a, b) => (b.performance_score ?? 0) - (a.performance_score ?? 0));
+      const ranked = [...seedStudentsRecords].sort(
+        (a, b) => (b.performance_score ?? 0) - (a.performance_score ?? 0),
+      );
       const overall = ranked.findIndex((r) => r.id === s.id) + 1;
       const deptRanked = ranked.filter((r) => r.department === s.department);
       const dRank = deptRanked.findIndex((r) => r.id === s.id) + 1;
-      return { ...s, overall_rank: overall, department_rank: dRank, overall_total: ranked.length, department_total: deptRanked.length };
+      return {
+        ...s,
+        overall_rank: overall,
+        department_rank: dRank,
+        overall_total: ranked.length,
+        department_total: deptRanked.length,
+      };
     })
     .sort((a, b) => {
       if (sort === "cgpa") return (b.cgpa ?? 0) - (a.cgpa ?? 0);
@@ -2731,6 +3613,781 @@ function filterStudents(query: Record<string, unknown>): StudentsResponse {
     });
 
   return { students: rows, count: rows.length };
+}
+
+const ACTIVITY_MODULES: { key: ActivityModuleKey; label: string }[] = [
+  { key: "mock_interview", label: "Mock Interview" },
+  { key: "communication", label: "Communication Skills" },
+  { key: "english", label: "English Trainer" },
+  { key: "aplr", label: "Aptitude & Logical Reasoning" },
+  { key: "basic_math", label: "Mathematics" },
+  { key: "situational", label: "Situational Problem Solving" },
+  { key: "technical", label: "Problem Solving (Technical)" },
+  { key: "dsa", label: "DSA" },
+  { key: "gd", label: "Group Discussion" },
+];
+
+const QUESTION_ACTIVITY_KEYS: ActivityModuleKey[] = [
+  "aplr",
+  "basic_math",
+  "situational",
+  "technical",
+  "dsa",
+];
+
+const TARGET_MODULES: StudentTargetModule[] = [
+  { key: "communication", label: "Communication Skills", short: "Communication" },
+  { key: "group_discussion", label: "Group Discussion", short: "Group Discussion" },
+  { key: "aplr", label: "Aptitude & Logical Reasoning", short: "APLR" },
+  { key: "basic_math", label: "Mathematics", short: "Mathematics" },
+  { key: "english", label: "English Trainer", short: "English" },
+  {
+    key: "situational",
+    label: "Situational Problem Solving Skills (Management)",
+    short: "Situational",
+  },
+  { key: "technical", label: "Problem Solving Skills (Technical)", short: "Technical" },
+  { key: "dsa", label: "DSA (Data Structures & Algorithms)", short: "DSA" },
+];
+
+const TARGETS_KEY = "sandbox.targets";
+
+function isoDay(offsetDays: number): string {
+  return new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+}
+
+function isoAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+function daysUntil(iso: string | null): number {
+  if (!iso) return 0;
+  const end = new Date(`${iso}T23:59:59`).getTime();
+  return Math.ceil((end - Date.now()) / 86_400_000);
+}
+
+function dueDisplay(iso: string | null): string {
+  if (!iso) return "-";
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function rankedStudentRecord(id?: string): StudentRecord {
+  const ranked = [...seedStudentsRecords].sort(
+    (a, b) => (b.performance_score ?? 0) - (a.performance_score ?? 0),
+  );
+  const found = ranked.find((s) => s.id === id) ?? ranked[0]!;
+  const index = ranked.findIndex((s) => s.id === found.id);
+  const dept = ranked.filter((s) => s.department === found.department);
+  return {
+    ...found,
+    overall_rank: index + 1,
+    department_rank: dept.findIndex((s) => s.id === found.id) + 1,
+    overall_total: ranked.length,
+    department_total: dept.length,
+  };
+}
+
+function studentDetailFor(id?: string): StudentDetail {
+  const r = rankedStudentRecord(id);
+  const email = `${r.first_name}.${r.last_name}`.toLowerCase().replace(/\s+/g, "") || "student";
+  return {
+    id: r.id,
+    full_name: r.full_name,
+    first_name: r.first_name,
+    middle_name: r.middle_name,
+    last_name: r.last_name,
+    college: INSTITUTION_NAME,
+    college_id: "SVIT-2026",
+    department: r.department ?? "B.Tech",
+    program: r.program ?? "B.Tech",
+    start_year: r.start_year,
+    end_year: r.end_year,
+    personal_email: `${email}@gmail.com`,
+    mobile_number: r.mobile_number,
+    avatar: null,
+    bio: "Final-year engineering student focused on product engineering and data-driven placement readiness.",
+    date_of_birth: `${BATCH_YEAR - 21}-04-12`,
+    gender: r.gender,
+    cgpa: r.cgpa,
+    placement_status: r.placement_status,
+    placement_eligible: r.placement_eligible,
+    linkedin_url: `https://linkedin.com/in/${email}`,
+    github_url: `https://github.com/${email}`,
+    portfolio_url: `https://${email}.dev`,
+    skills: r.skills,
+    certifications: ["AWS Cloud Practitioner", "Meta Front-End Developer"],
+    projects: [
+      { title: "Campus placement dashboard", tech: "React, Django", year: BATCH_YEAR },
+      { title: "Readiness score predictor", tech: "Python, scikit-learn", year: BATCH_YEAR - 1 },
+    ],
+    internships: [
+      { company: "Persistent Systems", role: "SDE Intern", duration: "3 months" },
+      { company: "Zoho", role: "QA Intern", duration: "2 months" },
+    ],
+    extracurricular_activities: ["Coding Club", "Smart India Hackathon", "NSS volunteering"],
+    preferred_roles: r.preferred_roles,
+    preferred_locations: r.preferred_locations,
+    preferred_language: r.preferred_language,
+    expected_ctc: r.expected_ctc,
+    time_spent: 1_240 + (Number(r.id.replace(/\D/g, "")) % 500),
+    account_status: r.account_status,
+    last_login_at: isoAgo(1),
+    cost_incurred: 312 + (Number(r.id.replace(/\D/g, "")) % 90),
+    readiness_score:
+      (r.performance_score ?? r.cgpa) ? (r.performance_score ?? (r.cgpa ?? 6) * 10) : null,
+    readiness_overall_rank: r.overall_rank,
+    readiness_overall_total: r.overall_total,
+    readiness_department_rank: r.department_rank,
+    readiness_department_total: r.department_total,
+    readiness_components: { communication: 78, aptlr: 71, technical: 83, english: 74 },
+    readiness_updated_at: isoAgo(2),
+    mock_interview_score: 77,
+    mock_interview_rank: 4,
+    mock_interview_total: r.overall_total,
+    mock_interview_department_rank: 2,
+    mock_interview_department_total: r.department_total,
+    self_training_score: 81,
+    self_training_rank: 3,
+    self_training_total: r.overall_total,
+    self_training_department_rank: 1,
+    self_training_department_total: r.department_total,
+    created_at: r.created_at,
+    updated_at: isoAgo(1),
+    has_account: true,
+    account: {
+      id: Number(r.id.replace(/\D/g, "")) || 1,
+      username: `${email}@svit.ac.in`,
+      email: `${email}@svit.ac.in`,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      is_active: true,
+      is_staff: false,
+      date_joined: r.created_at,
+      last_login: isoAgo(1),
+    },
+    ranks: {
+      score: r.performance_score,
+      department: r.department_rank,
+      overall: r.overall_rank,
+      total: r.overall_total,
+      department_total: r.department_total,
+    },
+    choices: {
+      gender: [
+        ["male", "Male"],
+        ["female", "Female"],
+        ["other", "Other"],
+      ],
+      program: [
+        ["btech", "B.Tech"],
+        ["mba", "MBA"],
+        ["bba", "BBA"],
+        ["bca", "BCA"],
+        ["ba", "BA"],
+      ],
+      placement_status: [
+        ["not_started", "Eligible"],
+        ["applying", "Applied"],
+        ["shortlisted", "Shortlisted"],
+        ["placed", "Placed"],
+      ],
+      account_status: [
+        ["active", "Active"],
+        ["inactive", "Inactive"],
+        ["invited", "Invited"],
+      ],
+    },
+  };
+}
+
+function activitySessionsFor(record: StudentRecord): ActivitySession[] {
+  const interview = mockInterviews()[0]!;
+  return [
+    {
+      module: "mock_interview",
+      module_label: "Mock Interview",
+      id: interview.id,
+      title: `${interview.company_name} - ${interview.role}`,
+      created_at: interview.created_at,
+      company_name: interview.company_name,
+      role: interview.role,
+      duration: interview.duration,
+      suspicion: interview.suspection,
+      panelists: interview.panelists,
+      message_count: interview.message_count,
+      scored_dimensions: interview.analysis?.scored_dimensions ?? 0,
+      status: interview.status,
+      overall_score: interview.analysis?.overall_score ?? null,
+    },
+    {
+      module: "communication",
+      module_label: "Communication Skills",
+      id: "comm-demo-1",
+      title: "STAR storytelling practice",
+      created_at: isoAgo(3),
+      phase: "practice",
+      duration_minutes: 18,
+      communication_score: 78,
+      status: "completed",
+      overall_score: 78,
+      scores: { fluency: 76, clarity: 80, confidence: 79 },
+    },
+    {
+      module: "english",
+      module_label: "English Trainer",
+      id: "eng-demo-1",
+      title: "Workplace email writing",
+      created_at: isoAgo(4),
+      writing_score: 74,
+      grade: "B+",
+      status: "finalized",
+      overall_score: 74,
+      scores: { grammar: 72, vocabulary: 76, structure: 74 },
+    },
+    {
+      module: "aplr",
+      module_label: "Aptitude & Logical Reasoning",
+      id: "aplr-demo-1",
+      title: "Time, speed and distance",
+      created_at: isoAgo(5),
+      topic: "Quantitative",
+      category: "speed_distance",
+      attempts: 2,
+      hints_used: 1,
+      points_awarded: 8,
+      star_rating: 4,
+      solved_at: isoAgo(5),
+      status: "solved",
+      overall_score: null,
+    },
+    {
+      module: "basic_math",
+      module_label: "Mathematics",
+      id: "math-demo-1",
+      title: "Percentages and ratios",
+      created_at: isoAgo(6),
+      category: "percentages",
+      attempts: 1,
+      hints_used: 0,
+      points_awarded: 10,
+      star_rating: 5,
+      solved_at: isoAgo(6),
+      status: "solved",
+      overall_score: null,
+    },
+    {
+      module: "situational",
+      module_label: "Situational Problem Solving",
+      id: "sit-demo-1",
+      title: "Handling a missed deadline",
+      created_at: isoAgo(8),
+      category: "ownership",
+      attempts: 2,
+      hints_used: 1,
+      points_awarded: 7,
+      star_rating: 4,
+      solved_at: isoAgo(8),
+      status: "solved",
+      overall_score: null,
+    },
+    {
+      module: "technical",
+      module_label: "Problem Solving (Technical)",
+      id: "tech-demo-1",
+      title: "Explain database indexing",
+      created_at: isoAgo(9),
+      category: "dbms",
+      attempts: 1,
+      hints_used: 0,
+      points_awarded: 9,
+      star_rating: 5,
+      solved_at: isoAgo(9),
+      status: "solved",
+      overall_score: null,
+    },
+    {
+      module: "dsa",
+      module_label: "DSA",
+      id: "dsa-demo-1",
+      title: "Longest substring without repeats",
+      created_at: isoAgo(11),
+      category: "sliding_window",
+      attempts: 3,
+      hints_used: 2,
+      points_awarded: 6,
+      star_rating: 3,
+      solved_at: isoAgo(11),
+      status: "solved",
+      overall_score: null,
+    },
+    {
+      module: "gd",
+      module_label: "Group Discussion",
+      id: "gd-demo-1",
+      title: "AI in the workplace",
+      created_at: isoAgo(13),
+      duration_minutes: 14,
+      grade: "B",
+      criteria: [
+        { label: "Content", score: 72 },
+        { label: "Communication", score: 76 },
+        { label: "Leadership", score: 68 },
+      ],
+      status: "analyzed",
+      overall_score: 72,
+      scores: { content: 72, communication: 76, leadership: 68 },
+    },
+  ].map((session) => ({
+    ...session,
+    module: session.module as ActivityModuleKey,
+    module_label: session.module_label,
+  })) as ActivitySession[];
+}
+
+function mean(values: number[]): number | null {
+  return values.length
+    ? Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(1))
+    : null;
+}
+
+function activitySummaryFor(
+  key: ActivityModuleKey,
+  sessions: ActivitySession[],
+): ActivityModuleSummary {
+  const rows = sessions.filter((session) => session.module === key);
+  const scores = rows
+    .map((row) => row.overall_score)
+    .filter((score): score is number => score != null);
+  if (key === "mock_interview") {
+    const scored = rows.filter((row) => row.overall_score != null).length;
+    return {
+      sessions: rows.length,
+      completed: rows.filter((row) => row.status !== "active").length,
+      scored,
+      completion_rate: rows.length ? Math.round((scored / rows.length) * 100) : null,
+      avg_score: mean(scores),
+      latest_score: scores[0] ?? null,
+      best_score: scores.length ? Math.max(...scores) : null,
+      first_score: scores.at(-1) ?? null,
+    };
+  }
+  if (QUESTION_ACTIVITY_KEYS.includes(key)) {
+    const solved = rows.filter((row) => row.status === "solved").length;
+    return {
+      sessions: rows.length,
+      solved,
+      gave_up: rows.filter((row) => row.status === "gave_up").length,
+      active: rows.filter((row) => row.status === "active").length,
+      solve_rate: rows.length ? Math.round((solved / rows.length) * 100) : null,
+      avg_attempts: mean(rows.map((row) => row.attempts ?? 0)),
+      avg_hints_used: mean(rows.map((row) => row.hints_used ?? 0)),
+      avg_points_awarded: mean(rows.map((row) => row.points_awarded ?? 0)),
+      avg_star_rating: mean(rows.map((row) => row.star_rating ?? 0)),
+    };
+  }
+  return {
+    sessions: rows.length,
+    analyzed: rows.length,
+    avg_duration_minutes: mean(rows.map((row) => row.duration_minutes ?? 0)),
+    avg_score: mean(scores),
+    latest_score: scores[0] ?? null,
+    best_score: scores.length ? Math.max(...scores) : null,
+    first_score: scores.at(-1) ?? null,
+    averages: {},
+  };
+}
+
+function studentActivityFor(id?: string): StudentActivityResponse {
+  const record = rankedStudentRecord(id);
+  const sessions = activitySessionsFor(record);
+  const modules = ACTIVITY_MODULES.map((module) => ({
+    key: module.key,
+    label: module.label,
+    summary: activitySummaryFor(module.key, sessions),
+  }));
+  return {
+    student: {
+      id: record.id,
+      full_name: record.full_name,
+      ...(record.department ? { department: record.department } : {}),
+      ...(record.program ? { program: record.program } : {}),
+      end_year: record.end_year,
+      has_account: true,
+    },
+    modules,
+    sessions,
+    totals: {
+      sessions: sessions.length,
+      modules_used: modules.filter((module) => module.summary.sessions > 0).length,
+      last_activity_at: sessions[0]?.created_at ?? null,
+    },
+    truncated: false,
+  };
+}
+
+function questionEvidence(sessionId: string): QuestionSessionEvidenceResponse {
+  const record = rankedStudentRecord();
+  const sessions = activitySessionsFor(record);
+  const session =
+    sessions.find((row) => row.id === sessionId && QUESTION_ACTIVITY_KEYS.includes(row.module)) ??
+    sessions.find((row) => row.module === "aplr")!;
+  const createdAt = session.created_at;
+  const question = `Practice prompt: ${session.title}. Walk through your approach and explain each step you would take.`;
+  const answer =
+    "I would first list the given values, then pick the formula or pattern that connects them, and finally check the result against the units and the expected range.";
+  return {
+    student: { id: record.id, full_name: record.full_name },
+    module: session.module,
+    module_label: session.module_label,
+    session: {
+      id: session.id,
+      title: session.title,
+      category: session.category ?? null,
+      status: session.status,
+      question,
+      answer,
+      solution:
+        "Start with the knowns, translate the question into one equation or invariant, and verify with a quick sanity check before submitting.",
+      transcript: [
+        { role: "user", content: question, created_at: createdAt },
+        {
+          role: "assistant",
+          content: "Take it one step at a time. What is the first quantity you can compute?",
+          created_at: createdAt,
+        },
+        { role: "user", content: answer, created_at: isoAgo(4) },
+      ],
+      attempts: session.attempts ?? 1,
+      hints_used: session.hints_used ?? 0,
+      points_awarded: session.points_awarded ?? 0,
+      star_rating: session.star_rating ?? 0,
+      solved_at: session.solved_at ?? createdAt,
+      created_at: createdAt,
+    },
+  };
+}
+
+function englishEvidence(sessionId: string): EnglishSessionEvidenceResponse {
+  const record = rankedStudentRecord();
+  const sessions = activitySessionsFor(record);
+  const session =
+    sessions.find((row) => row.id === sessionId && row.module === "english") ??
+    sessions.find((row) => row.module === "english")!;
+  const createdAt = session.created_at;
+  return {
+    student: { id: record.id, full_name: record.full_name },
+    module: "english",
+    module_label: session.module_label,
+    session: {
+      id: session.id,
+      title: session.title,
+      status: session.status,
+      finalized_at: session.finalized_at ?? createdAt,
+      created_at: createdAt,
+      scores: {
+        clarity: 78,
+        structure: 76,
+        grammar: 72,
+        vocabulary: 76,
+        spelling: 70,
+        conciseness: 74,
+        task_focus: 80,
+        professional_tone: 77,
+      },
+      mistakes: [
+        {
+          turn_index: 0,
+          category: "grammar",
+          original: "I am writing to follow up on my interview",
+          corrected: "I am writing to follow up on my interview",
+          explanation: "The original is already grammatical, so keep it concise and add the role.",
+        },
+        {
+          turn_index: 1,
+          category: "tone",
+          original: "Please revert back soon",
+          corrected: "I would appreciate your response by Friday.",
+          explanation: "Avoid 'revert back' in professional writing, and name a clear deadline.",
+        },
+      ],
+      transcript: [
+        {
+          role: "user",
+          content: "Write a short follow-up email after a technical interview.",
+          created_at: createdAt,
+        },
+        {
+          role: "assistant",
+          content:
+            "Draft it in 4-5 sentences and include one specific thing you enjoyed discussing.",
+          created_at: createdAt,
+        },
+        {
+          role: "user",
+          content:
+            "Dear Hiring Manager, I am writing to follow up on my interview. Please revert back soon. Regards, Aarav.",
+          created_at: isoAgo(4),
+        },
+      ],
+      strengths: "Clear structure and a polite opening.",
+      areas_for_improvement: "Use a specific deadline and remove redundant wording.",
+      recurring_mistakes: "Occasionally uses conversational phrases in formal emails.",
+      ai_recommendations: "Practise two more follow-up emails and keep each under 100 words.",
+    },
+  };
+}
+
+function targetForRecord(
+  record: StudentRecord,
+  id: string,
+  title: string,
+  department: string,
+  modules: Record<string, number>,
+  mockCount: number,
+  startsOn: string | null,
+  dueOn: string,
+  notes: string,
+): StudentTarget {
+  const selfTraining = Object.values(modules).reduce((sum, count) => sum + count, 0);
+  const covered = department
+    ? seedStudentsRecords.filter((student) => student.department === department)
+    : [record];
+  const total = covered.length;
+  const met = Math.max(1, Math.floor(total * 0.6));
+  return {
+    id,
+    title,
+    department,
+    audience_label: department
+      ? `${department} - ${total} students`
+      : `${total} selected student${total === 1 ? "" : "s"}`,
+    modules,
+    self_training_count: selfTraining,
+    mock_interview_count: mockCount,
+    total_count: selfTraining + mockCount,
+    starts_on: startsOn,
+    due_on: dueOn,
+    due_on_display: dueDisplay(dueOn),
+    days_left: daysUntil(dueOn),
+    is_open: daysUntil(dueOn) >= 0,
+    notes,
+    progress: {
+      students: total,
+      students_met: met,
+      students_started: Math.max(met, Math.floor(total * 0.85)),
+      self_training_target: selfTraining,
+      self_training_done: Math.round(selfTraining * 0.62),
+      mock_target: mockCount,
+      mock_done: Math.round(mockCount * 0.5),
+      percent_met: total ? Math.round((met / total) * 100) : null,
+      met_candidate_ids: covered.slice(0, met).map((student) => student.id),
+    },
+    candidate_ids: department ? [] : covered.map((student) => student.id),
+    created_by: "Placement Cell",
+    created_at: isoAgo(7),
+  };
+}
+
+function seedTargets(): StudentTarget[] {
+  const record = rankedStudentRecord();
+  return [
+    targetForRecord(
+      record,
+      "target-btech-1",
+      "B.Tech placement sprint",
+      "B.Tech",
+      { dsa: 12, aplr: 8, communication: 4, technical: 5 },
+      2,
+      isoDay(-7),
+      isoDay(9),
+      "Finish two mock interviews before the pooled campus drive.",
+    ),
+    targetForRecord(
+      record,
+      "target-mba-1",
+      "MBA readiness reset",
+      "MBA",
+      { communication: 6, group_discussion: 3, english: 2 },
+      1,
+      isoDay(-20),
+      isoDay(-6),
+      "Closed after the consulting drive.",
+    ),
+  ];
+}
+
+function readTargets(): StudentTarget[] {
+  const stored = readJson<StudentTarget[] | null>(TARGETS_KEY, null);
+  if (stored) return stored;
+  const seeded = seedTargets();
+  writeJson(TARGETS_KEY, seeded);
+  return seeded;
+}
+
+function saveTargets(targets: StudentTarget[]): void {
+  writeJson(TARGETS_KEY, targets);
+}
+
+function targetsPayload(): StudentTargets {
+  const targets = readTargets().sort((a, b) => {
+    if (a.is_open !== b.is_open) return a.is_open ? -1 : 1;
+    return (a.due_on ?? "").localeCompare(b.due_on ?? "");
+  });
+  const open = targets.filter((target) => target.is_open).length;
+  return {
+    targets,
+    counts: { open, closed: targets.length - open },
+    modules: TARGET_MODULES,
+    departments: DEPARTMENTS.map((department) => ({
+      name: department,
+      students: seedStudentsRecords.filter((student) => student.department === department).length,
+    })).filter((department) => department.students > 0),
+  };
+}
+
+function createTarget(body: Record<string, unknown>): StudentTarget {
+  const department = typeof body["department"] === "string" ? body["department"] : "";
+  const candidateIds = Array.isArray(body["candidate_ids"])
+    ? body["candidate_ids"].map(String)
+    : [];
+  const modulesInput =
+    body["modules"] && typeof body["modules"] === "object"
+      ? (body["modules"] as Record<string, unknown>)
+      : {};
+  const modules: Record<string, number> = {};
+  for (const module of TARGET_MODULES) {
+    const raw = modulesInput[module.key];
+    modules[module.key] = Math.min(100, Math.max(0, Number(raw) || 0));
+  }
+  const mockCount = Math.min(100, Math.max(0, Number(body["mock_interview_count"]) || 0));
+  const dueOn = typeof body["due_on"] === "string" && body["due_on"] ? body["due_on"] : isoDay(14);
+  const startsOn =
+    typeof body["starts_on"] === "string" && body["starts_on"] ? body["starts_on"] : null;
+  const notes = typeof body["notes"] === "string" ? body["notes"] : "";
+  const audience = department
+    ? seedStudentsRecords.filter((student) => student.department === department)
+    : seedStudentsRecords.filter((student) => candidateIds.includes(student.id));
+  const record = audience[0] ?? rankedStudentRecord();
+  const title =
+    typeof body["title"] === "string" && body["title"].trim()
+      ? body["title"].trim()
+      : department
+        ? `${department} practice target`
+        : "Selected students practice target";
+  const target = targetForRecord(
+    record,
+    uid("target"),
+    title,
+    department,
+    modules,
+    mockCount,
+    startsOn,
+    dueOn,
+    notes,
+  );
+  if (!department) {
+    const total = audience.length;
+    target.audience_label = `${total} selected student${total === 1 ? "" : "s"}`;
+    target.candidate_ids = candidateIds;
+    target.progress.students = total;
+    target.progress.students_met = 0;
+    target.progress.students_started = 0;
+    target.progress.percent_met = total ? 0 : null;
+    target.progress.met_candidate_ids = [];
+  }
+  saveTargets([...readTargets(), target]);
+  return target;
+}
+
+function deleteTarget(id: string): void {
+  saveTargets(readTargets().filter((target) => target.id !== id));
+}
+
+function interviewEvidence(interviewId: string): StudentInterviewEvidenceResponse {
+  const interview = mockInterviews().find((row) => row.id === interviewId) ?? mockInterviews()[0]!;
+  const record = rankedStudentRecord();
+  return {
+    student: { id: record.id, full_name: record.full_name },
+    interview,
+  };
+}
+
+const MESSAGES_KEY = "sandbox.student-messages";
+
+function messageMap(): Record<string, StudentMessage[]> {
+  return readJson<Record<string, StudentMessage[]>>(MESSAGES_KEY, {}) ?? {};
+}
+
+function saveMessageMap(map: Record<string, StudentMessage[]>): void {
+  writeJson(MESSAGES_KEY, map);
+}
+
+function messagesFor(id?: string): StudentMessagesResponse {
+  const record = rankedStudentRecord(id);
+  const map = messageMap();
+  let thread = map[record.id];
+  if (!thread) {
+    const studentUserId = Number(record.id.replace(/\D/g, "")) || 1;
+    thread = [
+      {
+        id: `msg-${record.id}-1`,
+        content: "Hello! I have completed the DSA target and wanted to check the next steps.",
+        created_at: isoAgo(2),
+        from_user_id: studentUserId,
+        to_user_id: 1001,
+        from_name: record.full_name,
+        is_mine: false,
+      },
+      {
+        id: `msg-${record.id}-2`,
+        content: "Great progress. Keep the momentum going and finish one mock interview this week.",
+        created_at: isoAgo(1),
+        from_user_id: 1001,
+        to_user_id: studentUserId,
+        from_name: "Dr. Anjali Joshi",
+        is_mine: true,
+      },
+    ];
+    map[record.id] = thread;
+    saveMessageMap(map);
+  }
+  return {
+    viewer_candidate_id: null,
+    student_id: record.id,
+    is_self: false,
+    peer: {
+      id: record.id,
+      full_name: record.full_name,
+      department: record.department ?? "B.Tech",
+      program: record.program ?? "B.Tech",
+      start_year: record.start_year ?? null,
+      end_year: record.end_year ?? null,
+    },
+    messages: thread,
+  };
+}
+
+function sendMessageTo(id: string, content: string): StudentMessage {
+  const record = rankedStudentRecord(id);
+  const map = messageMap();
+  const thread = map[record.id] ?? messagesFor(record.id).messages;
+  const studentUserId = Number(record.id.replace(/\D/g, "")) || 1;
+  const message: StudentMessage = {
+    id: uid("msg"),
+    content,
+    created_at: nowIso(),
+    from_user_id: 1001,
+    to_user_id: studentUserId,
+    from_name: "Dr. Anjali Joshi",
+    is_mine: true,
+  };
+  map[record.id] = [...thread, message];
+  saveMessageMap(map);
+  return message;
 }
 
 function saveSessions(key: ModuleKey, sessions: QuestionSession[]): void {

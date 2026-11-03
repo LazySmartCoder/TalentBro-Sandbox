@@ -1417,9 +1417,7 @@ export async function codingAssessmentList(
   );
 }
 
-export async function codingAssessmentDetail(
-  sessionId: string,
-): Promise<CodingAssessmentSession> {
+export async function codingAssessmentDetail(sessionId: string): Promise<CodingAssessmentSession> {
   const data = await apiFetch<{ session: CodingAssessmentSession }>(
     `/api/coding-assessment/${sessionId}/`,
   );
@@ -1537,9 +1535,7 @@ export function readingSkipKeepalive(sessionId: string): void {
   }
 }
 
-export async function readingList(
-  params: { limit?: number; offset?: number } = {},
-): Promise<
+export async function readingList(params: { limit?: number; offset?: number } = {}): Promise<
   HistoryPage<ReadingComprehensionSession, PracticeRollupRow> & {
     summary?: ReadingComprehensionSummary;
   }
@@ -2663,5 +2659,416 @@ export async function deleteForumPost(id: string): Promise<void> {
   await apiFetch<{ detail: string }>(`/api/forum/posts/${id}/`, { method: "DELETE" });
 }
 
+// ---------------------------------------------------------------------------
+// Launched training targets
+// ---------------------------------------------------------------------------
 
+export type StudentTargetModule = {
+  key: string;
+  label: string;
+  short: string;
+};
 
+export type StudentTargetProgress = {
+  students: number;
+  students_met: number;
+  students_started: number;
+  self_training_target: number;
+  self_training_done: number;
+  mock_target: number;
+  mock_done: number;
+  percent_met: number | null;
+  met_candidate_ids: string[];
+};
+
+export type StudentTarget = {
+  id: string;
+  title: string;
+  department: string;
+  audience_label: string;
+  modules: Record<string, number>;
+  self_training_count: number;
+  mock_interview_count: number;
+  total_count: number;
+  starts_on: string | null;
+  due_on: string | null;
+  due_on_display: string;
+  days_left: number;
+  is_open: boolean;
+  notes: string;
+  progress: StudentTargetProgress;
+  candidate_ids: string[];
+  created_by: string;
+  created_at: string | null;
+};
+
+export type StudentTargetDepartment = {
+  name: string;
+  students: number;
+};
+
+export type StudentTargets = {
+  targets: StudentTarget[];
+  counts: { open: number; closed: number };
+  modules: StudentTargetModule[];
+  departments: StudentTargetDepartment[];
+};
+
+export async function getStudentTargets(): Promise<StudentTargets> {
+  return apiFetch<StudentTargets>("/api/students-targets/");
+}
+
+export type StudentTargetPayload = {
+  title?: string;
+  department?: string;
+  candidate_ids?: string[];
+  modules?: Record<string, number>;
+  mock_interview_count?: number;
+  starts_on?: string;
+  due_on: string;
+  notes?: string;
+};
+
+export type StudentTargetCreated = { target: StudentTarget };
+
+export async function addStudentTarget(
+  payload: StudentTargetPayload,
+): Promise<StudentTargetCreated> {
+  return apiFetch<StudentTargetCreated>("/api/students-targets/create/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function removeStudentTarget(id: string): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/students-targets/${id}/`, { method: "DELETE" });
+}
+
+// ---------------------------------------------------------------------------
+// Full student record, activity history and interview evidence
+// ---------------------------------------------------------------------------
+
+export type ChoicePair = [string, string];
+
+export type StudentAccount = {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+  is_staff: boolean;
+  date_joined: string | null;
+  last_login: string | null;
+};
+
+export type StudentDetail = {
+  id: string;
+  full_name: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  college: string;
+  college_id: string | null;
+  department: string;
+  program: string;
+  start_year: number | null;
+  end_year: number | null;
+  personal_email: string | null;
+  mobile_number: string;
+  avatar: string | null;
+  bio: string;
+  date_of_birth: string | null;
+  gender: string;
+  cgpa: number | null;
+  placement_status: string;
+  placement_eligible: boolean;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  skills: string[];
+  certifications: string[];
+  projects: unknown[];
+  internships: unknown[];
+  extracurricular_activities: string[];
+  preferred_roles: string[];
+  preferred_locations: string[];
+  preferred_language: string;
+  expected_ctc: number | null;
+  time_spent: number;
+  account_status: string;
+  last_login_at: string | null;
+  cost_incurred: number;
+  readiness_score: number | null;
+  readiness_overall_rank: number | null;
+  readiness_overall_total: number;
+  readiness_department_rank: number | null;
+  readiness_department_total: number;
+  readiness_components: Record<string, unknown>;
+  readiness_updated_at: string | null;
+  mock_interview_score: number | null;
+  mock_interview_rank: number | null;
+  mock_interview_total: number;
+  mock_interview_department_rank: number | null;
+  mock_interview_department_total: number;
+  self_training_score: number | null;
+  self_training_rank: number | null;
+  self_training_total: number;
+  self_training_department_rank: number | null;
+  self_training_department_total: number;
+  created_at: string | null;
+  updated_at: string | null;
+  has_account: boolean;
+  account: StudentAccount | null;
+  ranks: ProfileRanks;
+  choices: {
+    gender: ChoicePair[];
+    program: ChoicePair[];
+    placement_status: ChoicePair[];
+    account_status: ChoicePair[];
+  };
+};
+
+export type StudentDetailResponse = {
+  student: StudentDetail;
+  activity_url: string;
+};
+
+export async function getStudentData(studentId: string): Promise<StudentDetailResponse> {
+  return apiFetch<StudentDetailResponse>(`/api/students/${studentId}/`);
+}
+
+export type ActivityModuleKey =
+  | "mock_interview"
+  | "aplr"
+  | "basic_math"
+  | "situational"
+  | "technical"
+  | "dsa"
+  | "communication"
+  | "english"
+  | "gd";
+
+export type ScoreTrend = {
+  avg_score: number | null;
+  latest_score: number | null;
+  best_score: number | null;
+  first_score: number | null;
+};
+
+export type MockInterviewSummary = ScoreTrend & {
+  sessions: number;
+  completed: number;
+  scored: number;
+  completion_rate: number | null;
+};
+
+export type QuestionModuleSummary = {
+  sessions: number;
+  solved: number;
+  gave_up: number;
+  active: number;
+  solve_rate: number | null;
+  avg_attempts: number | null;
+  avg_hints_used: number | null;
+  avg_points_awarded: number | null;
+  avg_star_rating: number | null;
+};
+
+export type ScoredModuleSummary = ScoreTrend & {
+  sessions: number;
+  analyzed?: number;
+  avg_duration_minutes?: number | null;
+  averages: Record<string, number>;
+};
+
+export type ActivityModuleSummary =
+  MockInterviewSummary | QuestionModuleSummary | ScoredModuleSummary;
+
+export type GdCriterionScore = { label: string; score: number | null };
+
+export type ActivitySession = {
+  module: ActivityModuleKey;
+  module_label: string;
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at?: string;
+  company_name?: string | null;
+  role?: string | null;
+  duration?: string | null;
+  suspicion?: number;
+  panelists?: string[];
+  message_count?: number;
+  scored_dimensions?: number;
+  topic?: string | null;
+  category?: string | null;
+  attempts?: number;
+  hints_used?: number;
+  points_awarded?: number;
+  star_rating?: number;
+  solved_at?: string | null;
+  phase?: string | null;
+  communication_score?: number | null;
+  writing_score?: number | null;
+  duration_minutes?: number | null;
+  grade?: string | null;
+  ended_at?: string | null;
+  finalized_at?: string | null;
+  scores?: Record<string, number | null>;
+  criteria?: GdCriterionScore[];
+  status: string;
+  overall_score: number | null;
+};
+
+export type StudentActivityResponse = {
+  student: {
+    id: string;
+    full_name: string;
+    department?: string;
+    program?: string;
+    end_year?: number | null;
+    has_account: boolean;
+  };
+  modules: { key: ActivityModuleKey; label: string; summary: ActivityModuleSummary }[];
+  sessions: ActivitySession[];
+  totals: {
+    sessions: number;
+    modules_used: number;
+    last_activity_at: string | null;
+  };
+  truncated: boolean;
+};
+
+export async function getStudentActivity(studentId: string): Promise<StudentActivityResponse> {
+  return apiFetch<StudentActivityResponse>(`/api/student-activity/${studentId}/`);
+}
+
+export type StudentInterviewEvidenceResponse = {
+  student: { id: string; full_name: string };
+  interview: MockInterviewDetail;
+};
+
+export async function getStudentInterviewEvidence(
+  interviewId: string,
+): Promise<StudentInterviewEvidenceResponse> {
+  return apiFetch<StudentInterviewEvidenceResponse>(
+    `/api/student-interview/${interviewId}/evidence/`,
+  );
+}
+
+export type QuestionSessionTurn = {
+  role: string;
+  content: string;
+  created_at: string | null;
+};
+
+export type QuestionSessionEvidenceResponse = {
+  student: { id: string; full_name: string };
+  module: ActivityModuleKey;
+  module_label: string;
+  session: {
+    id: string;
+    title: string;
+    category: string | null;
+    status: string;
+    question: string;
+    answer: string;
+    solution: string;
+    transcript: QuestionSessionTurn[];
+    attempts: number;
+    hints_used: number;
+    points_awarded: number;
+    star_rating: number;
+    solved_at: string | null;
+    created_at: string;
+    updated_at?: string;
+  };
+};
+
+export async function getQuestionSessionEvidence(
+  sessionId: string,
+): Promise<QuestionSessionEvidenceResponse> {
+  return apiFetch<QuestionSessionEvidenceResponse>(`/api/student-question/${sessionId}/evidence/`);
+}
+
+export type EnglishSessionEvidenceResponse = {
+  student: { id: string; full_name: string };
+  module: ActivityModuleKey;
+  module_label: string;
+  session: {
+    id: string;
+    title: string;
+    status: string;
+    finalized_at: string | null;
+    created_at: string;
+    updated_at?: string;
+    scores: Record<string, number | null>;
+    mistakes: {
+      turn_index: number;
+      category: string;
+      original: string;
+      corrected: string;
+      explanation: string;
+    }[];
+    transcript: QuestionSessionTurn[];
+    strengths: string;
+    areas_for_improvement: string;
+    recurring_mistakes: string;
+    ai_recommendations: string;
+  };
+};
+
+export async function getEnglishSessionEvidence(
+  sessionId: string,
+): Promise<EnglishSessionEvidenceResponse> {
+  return apiFetch<EnglishSessionEvidenceResponse>(`/api/student-english/${sessionId}/evidence/`);
+}
+
+export type StudentMessage = {
+  id: string;
+  content: string;
+  created_at: string;
+  from_user_id: number;
+  to_user_id: number;
+  from_name: string;
+  is_mine: boolean;
+};
+
+export type StudentMessagePeer = {
+  id: string;
+  full_name: string;
+  department: string;
+  program: string;
+  start_year: number | null;
+  end_year: number | null;
+};
+
+export type StudentMessagesResponse = {
+  viewer_candidate_id: string | null;
+  student_id: string;
+  is_self: boolean;
+  peer: StudentMessagePeer;
+  messages: StudentMessage[];
+};
+
+export function ownCandidateId(user: AuthUser | null | undefined): string | null {
+  if (!user) return null;
+  const profile = user.profile as { candidate_id?: string } | null | undefined;
+  return profile?.candidate_id ?? null;
+}
+
+export async function studentMessages(studentId: string): Promise<StudentMessagesResponse> {
+  return apiFetch<StudentMessagesResponse>(`/api/students/${studentId}/messages/`);
+}
+
+export async function sendStudentMessage(
+  studentId: string,
+  content: string,
+): Promise<StudentMessage> {
+  const data = await apiFetch<{ message: StudentMessage }>(`/api/students/${studentId}/messages/`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+  return data.message;
+}

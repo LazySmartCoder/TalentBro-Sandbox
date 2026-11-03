@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { brandedTitle } from "@/lib/branding";
 import { initTimeTracker } from "@/lib/time-tracker";
+import { SandboxTopBar } from "@/components/sandbox/top-bar";
 
 function NotFoundComponent() {
   return (
@@ -121,6 +122,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <SandboxTopBar />
         {children}
         <Scripts />
       </body>

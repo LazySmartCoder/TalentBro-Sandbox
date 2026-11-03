@@ -49,13 +49,13 @@ export function activateEnvironment(env: SandboxEnv): { role: SandboxRole; entry
   // staff
   setSandboxEnv("staff");
   setSandboxRole("institution_staff");
-  return { role: "institution_staff", entry: "/dashboard" };
+  return { role: "institution_staff", entry: "/client-chat" };
 }
 
 export function getEntryRouteForEnv(env: SandboxEnv | null): string {
   if (env === "student") return "/student";
   if (env === "copilot") return "/copilot";
-  if (env === "staff") return "/dashboard";
+  if (env === "staff") return "/client-chat";
   return "/";
 }
 
